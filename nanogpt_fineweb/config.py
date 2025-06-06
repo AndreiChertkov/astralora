@@ -114,7 +114,7 @@ def config():
     parser.add_argument('--save_model',
         type=lambda x: bool(strtobool(x)),
         help='Do we auto-save model after train',
-        nargs="?",
+        nargs='?',
         const=True,
         default=True)
     
@@ -126,7 +126,7 @@ def config():
     parser.add_argument('--rewrite',
         type=lambda x: bool(strtobool(x)),
         help='Do we auto delete the computation with the same name',
-        nargs="?",
+        nargs='?',
         const=True,
         default=False)
     

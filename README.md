@@ -3,7 +3,7 @@
 
 ## Description
 
-This package AstraLora (Adaptive Surrogate TRAining with LOw RAnk) enables efficient backpropagation through non-differentiable layers via dynamically trained low-rank surrogates and zero-order gradient approximation.
+This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w **RA**nk) enables efficient backpropagation through non-differentiable layers via dynamically trained low-rank surrogates and zero-order gradient approximation.
 
 
 ## Installation
