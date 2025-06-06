@@ -36,6 +36,11 @@ This package AstraLora (Adaptive Surrogate TRAining with LOw RAnk) enables effic
     conda activate && conda remove --name astralora --all -y
     ```
 
+7. If there is an import error:
+    ```
+    pip install -e .
+    ```
+    
 
 ## Usage
 
