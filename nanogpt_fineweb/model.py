@@ -6,6 +6,8 @@ import torch.nn.functional as F
 
 sys.path.append('..')
 from astralora_layer import AstraloraLayer
+from nograd_layer import NoGradLinear
+from truelowrank_layer import TrueLowRankLinear
 
 
 class Model(nn.Module):
@@ -136,15 +138,21 @@ class MLP(nn.Module):
     def __init__(self, config, num):
         super().__init__()
 
+        # TODO: make it cleaner
         is_last = num == config.n_layer-1
         is_bb = config.mode == 'bb'
         is_bb = is_bb or (config.mode == 'bb_one' and is_last)
+        is_nograd = config.mode == 'nograd'
+        is_truelowrank = config.mode == 'truelowrank'
 
         self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd, bias=False)
 
-        if not is_bb:
-            self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd, 
-                bias=False)
+        if is_nograd:
+            self.c_proj = NoGradLinear(4 * config.n_embd, config.n_embd)
+        elif is_truelowrank:
+            self.c_proj = TrueLowRankLinear(4 * config.n_embd, config.n_embd, rank=config.rank)
+        elif not is_bb:
+            self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd, bias=False)
             self.c_proj.weight.data.zero_()
         else:
             self.c_proj = AstraloraLayer(4 * config.n_embd, config.n_embd,

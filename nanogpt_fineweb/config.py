@@ -27,12 +27,12 @@ def config():
     parser.add_argument('--mode',
         type=str,
         help='Kind of the model',
-        choices=['digital', 'bb', 'bb_one'],
+        choices=['digital', 'bb', 'bb_one', 'nograd', 'truelowrank'],
         default='digital')
 
     parser.add_argument('--rank',
         type=int,
-        help='Rank for the low-rank model. For the base model this argument is not used',
+        help='Rank for the low-rank model. Used in bb, bb_one, and truelowrank modes',
         default=10)
 
     parser.add_argument('--lr_sur',
