@@ -104,7 +104,7 @@ def config():
     parser.add_argument('--vld_every',
         type=int,
         help='Every how many steps to evaluate validation loss?',
-        default=100)
+        default=1000)
 
     parser.add_argument('--tokens_vld',
         type=int,

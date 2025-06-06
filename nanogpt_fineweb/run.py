@@ -18,6 +18,28 @@ from utils import init_log
 from utils import init_path
 
 
+def modify_gpu_args_for_cryri(args):
+    # Get the number of requested GPUs from args.gpus
+    requested_gpus = [int(g.strip()) for g in args.gpus.split(',')]
+    num_requested = len(requested_gpus)
+    
+    # Get the number of available GPUs
+    num_available = torch.cuda.device_count()
+    
+    # Check if we have enough GPUs
+    if num_requested > num_available:
+        raise ValueError(f"Requested {num_requested} GPUs but only {num_available} are available")
+    elif num_requested != num_available:
+        print('Executing on Hopper, no GPU number swapping')
+    else:
+        print('Executing with jobs, GPU number swapping')
+    
+        available_gpus = list(range(num_available))
+        args.gpus = ','.join(map(str, available_gpus))
+    
+    return args
+
+
 @record
 @torch.compiler.disable
 def run(args):
@@ -214,4 +236,5 @@ def run(args):
 
 if __name__ == '__main__':
     args = config()
+    args = modify_gpu_args_for_cryri(args)
     run(args)

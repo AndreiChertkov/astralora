@@ -1,13 +1,13 @@
 import sys
+import os
 import torch
 from torch import nn
 import torch.nn.functional as F
 
 
-sys.path.append('..')
-from astralora_layer import AstraloraLayer
-from nograd_layer import NoGradLinear
-from truelowrank_layer import TrueLowRankLinear
+from layers.astralora_layer import AstraloraLayer
+from layers.nograd_layer import NoGradLinear
+from layers.truelowrank_layer import TrueLowRankLinear
 
 
 class Model(nn.Module):

@@ -1,12 +1,12 @@
 container:
   image: "cr.ai.cloud.ru/aicloud-base-images/cuda12.1-torch2-py39:0.0.36"
-  command: bash cryri_run.sh
+  command: bash jobs/cryri_run.sh
   work_dir: '.'
   run_from_copy: False
   cry_copy_dir: "/home/jovyan/<LOCAL FOLDER>/.cryri"
 cloud:
   region: "SR006"   # Cloud region to deploy the job
-  instance_type: "a100plus.1gpu.80vG.12C.96G"  # Single GPU instance
+  instance_type: "a100plus.2gpu.80vG.24C.192G"  # Single GPU instance #a100plus.1gpu.80vG.12C.96G
   n_workers: 1  # Number of worker instances
   priority: "medium" # ['high', 'medium', 'low']
-  description: "optinet nanogpt" 
+  description: "astralora nanogpt fineweb" 
