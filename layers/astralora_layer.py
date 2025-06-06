@@ -151,10 +151,6 @@ class LowRankGradientFunction(Function):
     @staticmethod
     def backward(ctx, grad_output):
         x, A, U, V = ctx.saved_tensors
-        
         grad_A = grad_output.t() @ x
-        
-        A_appr = U @ V
-        grad_x = grad_output @ A_appr
-        
+        grad_x = grad_output @ U @ V
         return grad_x, grad_A, None, None
