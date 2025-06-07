@@ -3,7 +3,7 @@
 
 ## Description
 
-This package AstraLora (Adaptive Surrogate TRAining with LOw RAnk) enables efficient backpropagation through non-differentiable layers via dynamically trained low-rank surrogates and zero-order gradient approximation.
+This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w **RA**nk) enables efficient backpropagation through non-differentiable layers via dynamically trained low-rank surrogates and zero-order gradient approximation.
 
 
 ## Installation
@@ -36,6 +36,11 @@ This package AstraLora (Adaptive Surrogate TRAining with LOw RAnk) enables effic
     conda activate && conda remove --name astralora --all -y
     ```
 
+7. If there is an import error:
+    ```
+    pip install -e .
+    ```
+    
 
 ## Usage
 

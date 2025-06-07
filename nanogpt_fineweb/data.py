@@ -12,7 +12,6 @@ class DistributedDataLoader:
 
         self.B = args.batch_size
         self.T = args.sequence_length
-        self.d = args.dim if args.mode == 'cp' else None
         
         self.init()
         self.load()
@@ -51,9 +50,6 @@ class DistributedDataLoader:
         self.ntok_total = ntok_total
 
     def next_batch(self):
-        if self.d is not None:
-            return self.next_batch_multi()
-        
         B = self.B
         T = self.T
         buf = self.tokens[self.current_position : self.current_position+B*T+1]
@@ -65,29 +61,6 @@ class DistributedDataLoader:
         if self.current_position + (B * T * self.num_processes + 1) > len(self.tokens):
             self.advance()
         return x.cuda(), y.cuda()
-
-    def next_batch_multi(self):
-        # TODO: check this function
-        if self.d is None:
-            raise ValueError
-        
-        B = self.B
-        T = self.T
-        buf = self.tokens[self.current_position : self.current_position+B*T+self.d]
-        buf = torch.tensor(buf.astype(np.int32), dtype=torch.long)
-        x = (buf[:-self.d]).view(B, T)
-        x = x.cuda()
-
-        y_all = []
-        for k in range(self.d):
-            y = (buf[k+1:][:B*T]).view(B, T)
-            y = y.cuda()
-            y_all.append(y)
-
-        self.current_position += (B * T + self.d) * self.num_processes
-        if self.current_position + ((B * T + self.d) * self.num_processes + 1) > len(self.tokens):
-            self.advance()
-        return x, y_all
 
     def reset(self):
         self.current_shard = 0
