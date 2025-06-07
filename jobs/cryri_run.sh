@@ -21,7 +21,7 @@ conda install gcc_linux-64 -y && conda install gxx_linux-64 -y
 source ./set_neptune_env.sh
 
 # Run the experiment
-torchrun --standalone --nproc_per_node=2 nanogpt_fineweb/run.py --gpus 0,1 --mode digital --name digital
+torchrun --standalone --nproc_per_node=2 nanogpt_fineweb/run.py --root_data /home/jovyan/basharin/astralora/nanogpt_fineweb/_data/fineweb --gpus 0,1 --mode digital --name digital
 # torchrun --standalone --nproc_per_node=2 nanogpt_fineweb/run.py --gpus 2,3 --mode bb_one --name bb_one_rank10 --rank 10
 # torchrun --standalone --nproc_per_node=2 nanogpt_fineweb/run.py --gpus 4,5 --mode bb --name bb_rank10 --rank 10 --batch_size 16
 
