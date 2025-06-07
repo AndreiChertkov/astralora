@@ -8,8 +8,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import torch._inductor.config as torch_config
 from types import SimpleNamespace
 import neptune
-from .neptune_config import NEPTUNE_PROJECT, NEPTUNE_API_TOKEN
-
+import os
 
 from config import config
 from data import DistributedDataLoader
@@ -18,6 +17,11 @@ from optimizer_muon import OptimizerMuon
 from utils import init_log
 from utils import init_path
 from utils import modify_gpu_args_for_cryri
+
+# Neptune configuration
+NEPTUNE_PROJECT = os.getenv("NEPTUNE_PROJECT", "YOUR_WORKSPACE/YOUR_PROJECT")
+NEPTUNE_API_TOKEN = os.getenv("NEPTUNE_API_TOKEN", "YOUR_API_TOKEN") 
+
 
 
 @record

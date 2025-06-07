@@ -1,5 +1,0 @@
-import os
-
-# Neptune configuration
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_PROJECT", "YOUR_WORKSPACE/YOUR_PROJECT")
-NEPTUNE_API_TOKEN = os.getenv("NEPTUNE_API_TOKEN", "YOUR_API_TOKEN") 

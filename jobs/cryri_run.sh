@@ -7,6 +7,9 @@ conda activate astralora
 # Install optional package isolation
 conda install -c conda-forge conda-ecosystem-user-package-isolation -y
 
+# Print current working directory
+pwd
+
 # Install dependencies
 pip install -e .
 pip install neptune-client
@@ -15,7 +18,7 @@ pip install neptune-client
 conda install gcc_linux-64 -y && conda install gxx_linux-64 -y
 
 # Source Neptune environment variables
-source ../set_neptune_env.sh
+source ./set_neptune_env.sh
 
 # Run the experiment
 torchrun --standalone --nproc_per_node=2 nanogpt_fineweb/run.py --gpus 0,1 --mode digital --name digital
