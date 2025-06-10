@@ -96,6 +96,10 @@ def config():
     parser.add_argument('--lr_muon',
         type=float,
         default=0.02)
+    
+    parser.add_argument('--surrogate_lr',
+        type=float,
+        default=0.01)
 
     parser.add_argument('--warmup_iters',
         type=int,

@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 
 from layers.astralora_layer import AstraloraLayer
+from layers.astralora_gd_layer import AstraloraGDLayer
 from layers.nograd_layer import NoGradLinear
 from layers.truelowrank_layer import TrueLowRankLinear
 
@@ -138,26 +139,44 @@ class MLP(nn.Module):
     def __init__(self, config, num):
         super().__init__()
 
-        # TODO: make it cleaner
-        is_last = num == config.n_layer-1
-        is_bb = config.mode == 'bb'
-        is_bb = is_bb or (config.mode == 'bb_one' and is_last)
-        is_nograd = config.mode == 'nograd'
-        is_truelowrank = config.mode == 'truelowrank'
-
         self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd, bias=False)
+        
+        # Determine projection layer type based on config mode
+        self.c_proj = self._create_projection_layer(config, num)
 
-        if is_nograd:
-            self.c_proj = NoGradLinear(4 * config.n_embd, config.n_embd)
-        elif is_truelowrank:
-            self.c_proj = TrueLowRankLinear(4 * config.n_embd, config.n_embd, rank=config.rank)
-        elif not is_bb:
-            self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd, bias=False)
-            self.c_proj.weight.data.zero_()
-        else:
-            self.c_proj = AstraloraLayer(4 * config.n_embd, config.n_embd,
-                rank=config.rank, log=config.log,
-                samples_bb=config.samples_bb, samples_sm=config.samples_sm)
+    def _create_projection_layer(self, config, layer_num):
+        """Create the appropriate projection layer based on configuration mode."""
+        is_last_layer = layer_num == config.n_layer - 1
+        in_features, out_features = 4 * config.n_embd, config.n_embd
+        
+        # Layer type selection based on mode
+        if config.mode == 'nograd':
+            return NoGradLinear(in_features, out_features)
+        
+        elif config.mode == 'truelowrank':
+            return TrueLowRankLinear(in_features, out_features, rank=config.rank)
+        
+        elif config.mode == 'bb' or (config.mode == 'bb_one' and is_last_layer):
+            return AstraloraLayer(
+                in_features, out_features,
+                rank=config.rank, 
+                log=config.log,
+                samples_bb=config.samples_bb, 
+                samples_sm=config.samples_sm
+            )
+        
+        elif config.mode == 'bb_gd':
+            return AstraloraGDLayer(
+                in_features, out_features,
+                rank=config.rank, 
+                log=config.log,
+                lr=config.lr
+            )
+        
+        else:  # Default case: standard linear layer with zero initialization
+            layer = nn.Linear(in_features, out_features, bias=False)
+            layer.weight.data.zero_()
+            return layer
 
     def forward(self, x):
         x = self.c_fc(x)

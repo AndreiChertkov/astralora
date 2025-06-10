@@ -4,22 +4,22 @@ from torch.autograd import Function
 import torch.nn as nn
 
 
-class AstraloraLayer(nn.Module):
-    def __init__(self, d_inp, d_out, rank=1, lr=0.01, log=print):
+class AstraloraGDLayer(nn.Module):
+    def __init__(self, d_inp, d_out, rank=1, surrogate_lr=0.01, log=print):
         super().__init__()
         
         self.d_inp = d_inp
         self.d_out = d_out
         self.rank = rank
-        self.base_lr = lr
-        self.lr = lr
+        self.surrogate_lr = surrogate_lr
+        self.lr = surrogate_lr
         self.log = log
 
         self.clip_grad_norm = 1.
         self.reg_lambda = 1.E-4
         self.stable_update_count = 0
 
-        self.log('... [DEBUG] Building Astralora layer : ' + self.extra_repr())
+        self.log('... [DEBUG] Building AstraloraGD layer : ' + self.extra_repr())
 
         self._init_bb()
         self._init_factors()
@@ -29,7 +29,7 @@ class AstraloraLayer(nn.Module):
         text += f'd_inp={self.d_inp}, '
         text += f'd_out={self.d_out}, '
         text += f'rank={self.rank}, '
-        text += f'lr={self.lr}'
+        text += f'surrogate_lr={self.surrogate_lr}'
         return text
 
     def forward(self, x):
