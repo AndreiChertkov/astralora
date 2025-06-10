@@ -1,5 +1,5 @@
+import neptune
 import os
-import subprocess
 import time
 import torch
 import torch.distributed as dist
@@ -7,8 +7,11 @@ from torch.distributed.elastic.multiprocessing.errors import record
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch._inductor.config as torch_config
 from types import SimpleNamespace
-import neptune
-import os
+
+
+import torch._dynamo
+torch._dynamo.config.suppress_errors = True
+
 
 from config import config
 from data import DistributedDataLoader
@@ -18,10 +21,12 @@ from utils import init_log
 from utils import init_path
 from utils import modify_gpu_args_for_cryri
 
-# Neptune configuration
-NEPTUNE_PROJECT = os.getenv("NEPTUNE_PROJECT", "YOUR_WORKSPACE/YOUR_PROJECT")
-NEPTUNE_API_TOKEN = os.getenv("NEPTUNE_API_TOKEN", "YOUR_API_TOKEN") 
 
+# Neptune configuration
+with open('../set_neptune_env.sh', 'r') as f:
+    text = f.read()
+    NEPTUNE_PROJECT = text.split('NEPTUNE_PROJECT="')[1].split('"')[0]
+    NEPTUNE_API_TOKEN = text.split('NEPTUNE_API_TOKEN="')[1].split('"')[0]
 
 
 @record
@@ -43,7 +48,8 @@ def run(args):
     # --- Init folders and log:
     if master_process:
         init_path(args.name, args.root, args.rewrite)
-    fpath = os.path.join(args.root, args.name, 'log.txt')
+    args.folder = os.path.join(args.root, args.name)
+    fpath = os.path.join(args.folder, 'log.txt')
     log = init_log(fpath=fpath, enable=master_process)
 
     # Initialize Neptune
@@ -51,13 +57,12 @@ def run(args):
         run = neptune.init_run(
             project=NEPTUNE_PROJECT,
             api_token=NEPTUNE_API_TOKEN,
-            name=args.name,
-        )
-        # Log hyperparameters
-        run["parameters"] = vars(args)
-        run["system/gpu"] = torch.cuda.get_device_name(0)
-        run["system/cuda_version"] = torch.version.cuda
-        run["system/pytorch_version"] = torch.version.__version__
+            name=args.name)
+        # Log hyperparameters:
+        run['parameters'] = vars(args)
+        run['system/gpu'] = torch.cuda.get_device_name(0)
+        run['system/cuda_version'] = torch.version.cuda
+        run['system/pytorch_version'] = torch.version.__version__
 
     # --- Calculate the number of steps to take in the validation loop:
     B = args.batch_size
@@ -71,16 +76,17 @@ def run(args):
     
     # --- Log info:
     if master_process:
-        run["info/ddp_world_size"] = ddp_world_size
-        run["info/data_trn"] = loader_trn.info()
-        run["info/data_vld"] = loader_vld.info()
+        run['info/ddp_world_size'] = ddp_world_size
+        run['info/data_trn'] = loader_trn.info()
+        run['info/data_vld'] = loader_vld.info()
         
     x, y = loader_trn.next_batch()
 
     # --- Init the model:
     model = Model(SimpleNamespace(vocab_size = 50304, block_size = 1024,
         n_layer=args.num_blocks, n_head=args.num_head, n_embd=768*2,
-        mode=args.mode, rank=args.rank, lr=args.lr_sur, log=log))
+        mode=args.mode, rank=args.rank, log=log,
+        samples_bb=args.samples_bb, samples_sm=args.samples_sm))
     model = model.cuda()
     model.master_process = master_process
     
@@ -164,8 +170,8 @@ def run(args):
             # Log the value:
             if master_process:
                 log(f'VLD | # {step+1:-4d} | loss {loss_vld:-8.1e}', 'res')
-                run["validation/loss"].append(loss_vld.item())
-                run["validation/step"].append(step + 1)
+                run['validation/loss'].append(loss_vld.item())
+                run['validation/step'].append(step + 1)
 
             # Start the clock again:
             torch.cuda.synchronize()
@@ -203,10 +209,10 @@ def run(args):
         if master_process:
             approx_time = training_time_ms + 1000 * (time.time() - t0)
             log(f'step:{step+1}/{args.num_iterations} train_loss:{loss_trn.item():.4f} train_time:{approx_time/1000:.2f}s step_avg:{approx_time/timed_steps/1000:.2f}s')
-            run["training/step"].append(step + 1)
-            run["training/loss"].append(loss_trn.item())
-            run["training/time"].append(approx_time / 1000)
-            run["training/step_time"].append(approx_time/timed_steps/1000)
+            run['training/step'].append(step + 1)
+            run['training/loss'].append(loss_trn.item())
+            run['training/time'].append(approx_time / 1000)
+            run['training/step_time'].append(approx_time/timed_steps/1000)
 
     # --- Save the trained model:
     if master_process and args.save_model:
@@ -224,7 +230,7 @@ def run(args):
     if master_process:
         mem = torch.cuda.max_memory_allocated() // 1024 // 1024
         log(f'Memory used: {mem}', 'res')
-        run["system/memory_used"] = mem
+        run['system/memory_used'] = mem
         run.stop()
         
     dist.destroy_process_group()
@@ -233,4 +239,5 @@ def run(args):
 if __name__ == '__main__':
     args = config()
     args = modify_gpu_args_for_cryri(args)
+
     run(args)

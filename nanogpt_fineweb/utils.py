@@ -43,18 +43,18 @@ def init_log(msg='', fpath='log.txt', enable=True):
 
 def init_path(name, root='result', rewrite=False):
     os.makedirs(root, exist_ok=True)
-    fold = f'{root}/{name}'
-    if os.path.isdir(fold):
+    folder = f'{root}/{name}'
+    if os.path.isdir(folder):
         if rewrite:
             act = 'y'
         else:
-            msg = f'Path "{fold}" already exists. Remove? [y/n] '
+            msg = f'Path "{folder}" already exists. Remove? [y/n] '
             act = input(msg)
         if act == 'y':
-            shutil.rmtree(fold)
+            shutil.rmtree(folder)
         else:
             raise ValueError('Folder with results is already exists')
-    os.makedirs(fold)
+    os.makedirs(folder)
 
 
 def modify_gpu_args_for_cryri(args):

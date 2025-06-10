@@ -12,9 +12,9 @@ build/
 dist/
 result*
 _data*
-_tmp
 
 # Environment and secrets
 set_neptune_env.sh
 *.env
 .env
+.neptune

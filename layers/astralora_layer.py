@@ -1,23 +1,21 @@
 import math
+import numpy as np
 import torch
 from torch.autograd import Function
 import torch.nn as nn
 
 
 class AstraloraLayer(nn.Module):
-    def __init__(self, d_inp, d_out, rank=1, lr=0.01, log=print):
+    def __init__(self, d_inp, d_out, rank=1,
+                 samples_bb=100, samples_sm=100, log=print):
         super().__init__()
         
         self.d_inp = d_inp
         self.d_out = d_out
         self.rank = rank
-        self.base_lr = lr
-        self.lr = lr
+        self.samples_bb = samples_bb
+        self.samples_sm = samples_sm
         self.log = log
-
-        self.clip_grad_norm = 1.
-        self.reg_lambda = 1.E-4
-        self.stable_update_count = 0
 
         self.log('... [DEBUG] Building Astralora layer : ' + self.extra_repr())
 
@@ -29,51 +27,37 @@ class AstraloraLayer(nn.Module):
         text += f'd_inp={self.d_inp}, '
         text += f'd_out={self.d_out}, '
         text += f'rank={self.rank}, '
-        text += f'lr={self.lr}'
+        text += f'samples_bb={self.samples_bb}, '
+        text += f'samples_sm={self.samples_sm}'
         return text
 
     def forward(self, x):
         shape = x.shape
         x = x.reshape(-1, shape[-1])
 
-        y = LowRankGradientFunction.apply(x, self.A, self.U, self.V)
+        y = LowRankGradientFunction.apply(x, self.A, self.U, self.S, self.V)
 
         if self.training:
             self._update_factors(x.detach().clone(), y.detach().clone())
+
+        self.A_old = self.A.detach().clone()
             
         y = y.reshape(*shape[:-1], y.shape[-1])
         
         return y
-    
-    def reset_learning_rate(self):
-        self.lr = self.base_lr
-        self.stable_update_count = 0
 
-    def _adjust_learning_rate(self, stable):
-        if stable:
-            self.stable_update_count += 1
-            if self.stable_update_count >= 10:
-                self.lr = min(self.base_lr * 1.1, self.base_lr * 5)
-        else:
-            self.stable_update_count = 0
-            self.lr = max(self.lr * 0.5, self.base_lr * 0.01)
-            # print(f"LR is reduced to {self.lr:.6f}")
-
-    def _check_stability(self, tensor, name=""):
-        if torch.isnan(tensor).any():
-            print(f"Found NaN in {name}")
-            return False
-        if torch.isinf(tensor).any():
-            print(f"Found Inf in {name}")
-            return False
-        if tensor.abs().max() > 1e6:
-            print(f"Found big value in {name} (max={tensor.abs().max():.2f})")
-            return False
-        return True
+    def _debug_err(self):
+        with torch.no_grad():
+            A = self.A.data.clone()
+            A_approx = self.U @ self.S @ self.V
+            err = torch.norm(A - A_approx) / torch.norm(A)
+            self.log(f'... [DEBUG] Error : {err:-12.5e} (init)')
 
     def _init_bb(self):
         self.A = nn.Parameter(torch.Tensor(self.d_out, self.d_inp))
         nn.init.kaiming_uniform_(self.A, a=math.sqrt(5))
+
+        self.A_old = self.A.detach().clone()
 
     def _init_factors(self):
         with torch.no_grad():
@@ -84,73 +68,77 @@ class AstraloraLayer(nn.Module):
             S = torch.diag(torch.sqrt(s[:self.rank]))
             V = V[:self.rank, :]
 
-            self.register_buffer('U', U @ S)
-            self.register_buffer('V', S @ V)
+            self.register_buffer('U', U)
+            self.register_buffer('S', S)
+            self.register_buffer('V', V)
 
-            A_approx = self.U @ self.V
-            err = torch.norm(A - A_approx) / torch.norm(A)
-            self.log(f'... [DEBUG] Error : {err:-12.5e} (init)')
+            self._debug_err()
 
     def _update_factors(self, x, y):
         with torch.no_grad():
-            batch_size = x.size(0)
 
-            A_appr = self.U @ self.V
-            y_pred = x @ A_appr.t()
+            A_old = self.A_old.data.clone()
+            A_new = self.A.data.clone()
 
-            reg_term = self.reg_lambda * A_appr
-            
-            e = y_pred - y
-            
-            grad_A_appr = e.t() @ x + reg_term
-            grad_A_appr /= (batch_size * self.d_out)
-            
-            grad_U = grad_A_appr @ self.V.t()
-            grad_V = self.U.t() @ grad_A_appr
-            
-            if self.clip_grad_norm > 0:
-                grad_U_norm = torch.norm(grad_U)
-                if grad_U_norm > self.clip_grad_norm:
-                    grad_U = grad_U * (self.clip_grad_norm / grad_U_norm)
+            delta = torch.norm(A_new - A_old) / torch.norm(A_old)
+            self.log(f'... [DEBUG] Delta A : {delta:-12.5e}')
 
-                grad_V_norm = torch.norm(grad_V)
-                if grad_V_norm > self.clip_grad_norm:
-                    grad_V = grad_V * (self.clip_grad_norm / grad_V_norm)
+            if delta < 1.E-12:
+                return
 
+            def f_old(x):
+                return x @ A_old.T
 
-            stable = True
-            stable &= self._check_stability(grad_U, "grad_U")
-            stable &= self._check_stability(grad_V, "grad_V")
+            def f_new(x):
+                return x @ A_new.T
 
-            self._adjust_learning_rate(stable)
-        
-            if stable:
-                self.U = self.U - self.lr * grad_U
-                self.V = self.V - self.lr * grad_V
+            self.U, self.S, self.V = psi_implicit(f_old, f_new,
+                self.U, self.S, self.V.T, self.samples_sm)
+            self.V = self.V.T
 
-            self.U.clamp_(-1.E5, 1.E5)
-            self.V.clamp_(-1.E5, 1.E5)
-            
-            A = self.A.data.clone()
-            A_appr = self.U @ self.V
-            err = torch.norm(A - A_appr) / torch.norm(A)
-            n1 = torch.norm(grad_U)
-            n2 = torch.norm(grad_V)
-
-            text = f'... [DEBUG] Error : {err:-12.5e}'
-            text += f' Grad norms : {n1:-8.1e}, {n2:-8.1e} | stable: {stable}'
-            self.log(text)
+            self._debug_err()
 
 
 class LowRankGradientFunction(Function):
     @staticmethod
-    def forward(ctx, x, A, U, V):
-        ctx.save_for_backward(x, A, U, V)
+    def forward(ctx, x, A, U, S, V):
+        ctx.save_for_backward(x, A, U, S, V)
         return x @ A.t()
 
     @staticmethod
     def backward(ctx, grad_output):
-        x, A, U, V = ctx.saved_tensors
+        x, A, U, S, V = ctx.saved_tensors
         grad_A = grad_output.t() @ x
-        grad_x = grad_output @ U @ V
-        return grad_x, grad_A, None, None
+        grad_x = grad_output @ U @ S @ V
+        return grad_x, grad_A, None, None, None
+
+
+def psi_implicit(f_old, f_new, U0, S0, V0, samples=100):
+    """A projector-splitting integrator (PSI) for dynamical low-rank appr."""
+    def compute_P1(f_new, f_old, V0): # Compute dA @ V0
+        V0_batch = V0.T
+        res_old = f_old(V0_batch)
+        res_new = f_new(V0_batch)
+        return (res_new - res_old).T
+
+    P1 = compute_P1(f_new, f_old, V0)
+
+    K1 = U0 @ S0 + P1
+    U1, S0_tld = torch.linalg.qr(K1, mode='reduced')
+    S0_hat = S0_tld - U1.T @ P1
+
+    def compute_P2(f_new, f_old, U1, d_inp, samples): # Compute dA^t @ U1
+        Z = torch.randn(samples, d_inp, device=U1.device, dtype=U1.dtype)
+        AZ = f_new(Z) - f_old(Z)
+        AZT_U = AZ @ U1
+        return Z.T @ AZT_U / samples
+
+    d_inp = V0.shape[0]
+    P2 = compute_P2(f_new, f_old, U1, d_inp, samples)
+
+    L1 = V0 @ S0_hat.T + P2
+
+    V1, S1_T = torch.linalg.qr(L1, mode='reduced')
+    S1 = S1_T.T
+
+    return U1, S1, V1

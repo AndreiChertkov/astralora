@@ -156,7 +156,8 @@ class MLP(nn.Module):
             self.c_proj.weight.data.zero_()
         else:
             self.c_proj = AstraloraLayer(4 * config.n_embd, config.n_embd,
-                rank=config.rank, lr=config.lr, log=config.log)
+                rank=config.rank, log=config.log,
+                samples_bb=config.samples_bb, samples_sm=config.samples_sm)
 
     def forward(self, x):
         x = self.c_fc(x)

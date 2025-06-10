@@ -16,6 +16,7 @@ setup(
         "numpy>=1.26",
         "rotary_embedding_torch",
         "peft",
-        "huggingface-hub"
+        "huggingface-hub",
+        "neptune"
     ],
 ) 

@@ -27,9 +27,9 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 
 5. Install dependencies:
     ```bash
-    pip install transformers torch==2.6.0 tiktoken datasets opt_einsum tqdm numpy==1.26 rotary_embedding_torch peft huggingface-hub
+    pip install transformers torch==2.6.0 tiktoken datasets opt_einsum tqdm numpy==1.26 rotary_embedding_torch peft huggingface-hub neptune
     ```
-    > In the case of errors do `conda install gcc_linux-64 -y && conda install gxx_linux-64 -y`
+    > In the case of errors do `conda install gcc_linux-64 -y && conda install gxx_linux-64 -y && conda install -c conda-forge libstdcxx-ng -y`
 
 6. Optionally delete virtual environment at the end of the work:
     ```bash
@@ -50,8 +50,8 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 
 2. `python run_data.py`
 
-3. `torchrun --standalone --nproc_per_node=2 run.py --gpus 0,1 --mode digital --name digital`
+3. `chmod +x ../set_neptune_env.sh && ../set_neptune_env.sh`
 
-4. `torchrun --standalone --nproc_per_node=2 run.py --gpus 2,3 --mode bb_one --name bb_one_rank10 --rank 10`
+4. `torchrun --standalone --nproc_per_node=4 run.py --gpus 0,1,2,3 --mode digital --name digital`
 
-5. `torchrun --standalone --nproc_per_node=2 run.py --gpus 4,5 --mode bb --name bb_rank10 --rank 10 --batch_size 16`
+5. `torchrun --standalone --nproc_per_node=4 run.py --gpus 4,5,6,7 --mode bb_one --name bb_one_rank10 --rank 10`

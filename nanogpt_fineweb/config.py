@@ -6,8 +6,8 @@ import os
 def config():
     parser = argparse.ArgumentParser(
         prog='astralora',
-        description='...',
-        epilog = 'Authors ©')
+        description='Adaptive Surrogate TRAining with LOw RAnk',
+        epilog = 'Andrei Chertkov, Artem Basharin ©')
 
     parser.add_argument('--name',
         type=str,
@@ -35,10 +35,14 @@ def config():
         help='Rank for the low-rank model. Used in bb, bb_one, and truelowrank modes',
         default=10)
 
-    parser.add_argument('--lr_sur',
-        type=float,
-        help='Learning rate for the surrogate model',
-        default=0.0001)
+    parser.add_argument('--samples_bb',
+        type=int,
+        help='Number of samples to train bb',
+        default=100)
+    parser.add_argument('--samples_sm',
+        type=int,
+        help='Number of samples to update surrogate model',
+        default=100)
 
     parser.add_argument('--gpus',
         type=str,
@@ -47,7 +51,7 @@ def config():
 
     parser.add_argument('--data_chunks',
         type=int,
-        help='Number of downloaded Fineweb data chunks (note that maximum possible value is 103)',
+        help='Number of downloaded Fineweb data chunks (note that the maximum possible value is 103)',
         default=103)
 
     parser.add_argument('--accumulation_steps',
@@ -58,7 +62,7 @@ def config():
     parser.add_argument('--batch_size',
         type=int,
         help='Batch size (per device)',
-        default=32)
+        default=16)
 
     parser.add_argument('--sequence_length',
         type=int,
@@ -80,6 +84,11 @@ def config():
         help='Number of iterations to run (note: it was 5100 in base repo)',
         default=2500)
 
+    parser.add_argument('--vld_every',
+        type=int,
+        help='Every how many steps to evaluate validation loss?',
+        default=1000)
+
     parser.add_argument('--lr_embed',
         type=float,
         default=0.0036)
@@ -100,11 +109,6 @@ def config():
     parser.add_argument('--weight_decay',
         type=float,
         default=0)
-
-    parser.add_argument('--vld_every',
-        type=int,
-        help='Every how many steps to evaluate validation loss?',
-        default=1000)
 
     parser.add_argument('--tokens_vld',
         type=int,
