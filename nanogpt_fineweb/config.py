@@ -35,6 +35,18 @@ def config():
         help='Rank for the low-rank model. Used in bb, bb_one, and truelowrank modes',
         default=10)
 
+    parser.add_argument('--bb_d',
+        type=int,
+        help='Number of parameters in the bb-layer. If = -1, then auto set',
+        default=-1)
+
+    parser.add_argument("--bb_kind",
+        type=str, 
+        help="Kind of the used black box",
+        choices=[
+            "matvec"],                # Simple linear-like layer
+        default="matvec")
+    
     parser.add_argument('--samples_bb',
         type=int,
         help='Number of samples to train bb',

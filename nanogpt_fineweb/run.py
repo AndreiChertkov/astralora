@@ -63,6 +63,8 @@ def run(args):
         run['system/gpu'] = torch.cuda.get_device_name(0)
         run['system/cuda_version'] = torch.version.cuda
         run['system/pytorch_version'] = torch.version.__version__
+    else:
+        run = None
 
     # --- Calculate the number of steps to take in the validation loop:
     B = args.batch_size
@@ -83,10 +85,11 @@ def run(args):
     x, y = loader_trn.next_batch()
 
     # --- Init the model:
-    model = Model(SimpleNamespace(vocab_size = 50304, block_size = 1024,
+    model = Model(SimpleNamespace(vocab_size=50304, block_size=1024,
         n_layer=args.num_blocks, n_head=args.num_head, n_embd=768*2,
-        mode=args.mode, rank=args.rank, log=log,
-        samples_bb=args.samples_bb, samples_sm=args.samples_sm))
+        mode=args.mode, rank=args.rank, log=log, nepman=run,
+        samples_bb=args.samples_bb, samples_sm=args.samples_sm,
+        bb_d=args.bb_d, bb_kind=args.bb_kind))
     model = model.cuda()
     model.master_process = master_process
     

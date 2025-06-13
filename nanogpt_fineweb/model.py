@@ -20,7 +20,7 @@ class Model(nn.Module):
         self.transformer = nn.ModuleDict(dict(
             wte = nn.Embedding(config.vocab_size, config.n_embd),
             h = nn.ModuleList([
-                Block(config, num) for num in range(config.n_layer)])))
+                Block(config, n) for n in range(config.n_layer)])))
 
         self._head_init()
         
@@ -122,12 +122,12 @@ class Model(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, config, num):
+    def __init__(self, config, layer_num):
         super().__init__()
 
         self.attn = CausalSelfAttention(config)
 
-        self.mlp = MLP(config, num)
+        self.mlp = MLP(config, layer_num)
 
     def forward(self, x):
         x = x + self.attn(F.rms_norm(x, (x.size(-1),)))
@@ -136,42 +136,43 @@ class Block(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, config, num):
+    def __init__(self, config, layer_num):
         super().__init__()
 
         self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd, bias=False)
         
         # Determine projection layer type based on config mode
-        self.c_proj = self._create_projection_layer(config, num)
+        self.c_proj = self._create_projection_layer(config, layer_num)
 
     def _create_projection_layer(self, config, layer_num):
         """Create the appropriate projection layer based on configuration mode."""
         is_last_layer = layer_num == config.n_layer - 1
         in_features, out_features = 4 * config.n_embd, config.n_embd
         
-        # Layer type selection based on mode
+        # Layer type selection based on mode:
+
         if config.mode == 'nograd':
             return NoGradLinear(in_features, out_features)
         
         elif config.mode == 'truelowrank':
-            return TrueLowRankLinear(in_features, out_features, rank=config.rank)
+            return TrueLowRankLinear(
+                in_features, out_features,
+                rank=config.rank)
         
         elif config.mode == 'bb' or (config.mode == 'bb_one' and is_last_layer):
             return AstraloraLayer(
-                in_features, out_features,
-                rank=config.rank, 
-                log=config.log,
+                in_features, out_features, config.bb_d, config.bb_kind,
+                rank=config.rank,
                 samples_bb=config.samples_bb, 
-                samples_sm=config.samples_sm
-            )
+                samples_sm=config.samples_sm,
+                log=config.log, nepman=config.nepman)
         
         elif config.mode == 'bb_gd':
             return AstraloraGDLayer(
                 in_features, out_features,
                 rank=config.rank, 
                 log=config.log,
-                lr=config.lr
-            )
+                lr=config.lr)
         
         else:  # Default case: standard linear layer with zero initialization
             layer = nn.Linear(in_features, out_features, bias=False)
