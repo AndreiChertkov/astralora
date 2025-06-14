@@ -58,4 +58,4 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 
 6. `clear && torchrun --standalone --nproc_per_node=2 run.py --gpus 4,5 --mode bb --name bb_rank100 --rank 100`
 
-7. `clear && torchrun --standalone --nproc_per_node=2 run.py --gpus 6,7 --mode bb --name bb_stoch --use_stochastic_w --batch_size 2`
+7. `clear && torchrun --standalone --nproc_per_node=2 run.py --gpus 6,7 --mode bb --name bb_stoch --use_stochastic_w --batch_size 2 -samples_bb 50 --samples_sm 50`
