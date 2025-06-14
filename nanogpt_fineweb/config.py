@@ -58,11 +58,11 @@ def config():
     parser.add_argument('--samples_bb',
         type=int,
         help='Number of samples to train bb',
-        default=100)
+        default=500)
     parser.add_argument('--samples_sm',
         type=int,
         help='Number of samples to update surrogate model',
-        default=100)
+        default=500)
 
     parser.add_argument('--gpus',
         type=str,
