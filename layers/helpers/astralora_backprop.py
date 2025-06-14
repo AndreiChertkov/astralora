@@ -23,7 +23,6 @@ def bb_backprop_wrap(bb_func, generator, samples_x=1, samples_w=1,
                 # grad_w = grad_output.t() @ x
                 grad_w = _backprop_stochastic_w(bb_func, x, w, grad_output, 
                     generator, samples_w)
-                print('grad_w', torch.norm(grad_w))
 
             return grad_x, grad_w, None, None, None
 

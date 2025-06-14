@@ -56,19 +56,14 @@ class AstraloraLayer(nn.Module):
         x = x.reshape(-1, shape[-1])
 
         y = self.bb_wrapper(x, self.w, self.U, self.S, self.V)
-        print('---- w', torch.norm(self.w))
 
         if self.training and self.use_sm and self.w_old is not None:
-            print('UPDATE')
             self._update_factors(x.detach().clone(), y.detach().clone())
 
         self.w_old = self.w.data.detach().clone()
             
         y = y.reshape(*shape[:-1], y.shape[-1])
 
-        print('---- y', torch.norm(y))
-
-        
         return y
 
     def _build(self, device=None):
