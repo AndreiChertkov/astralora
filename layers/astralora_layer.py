@@ -1,12 +1,17 @@
-import math
 import torch
-from torch.autograd import Function
 import torch.nn as nn
+
+
+from .helpers.astralora_backprop import bb_backprop_wrap
+from .helpers.astralora_bb import bb_appr
+from .helpers.astralora_bb import bb_build
+from .helpers.astralora_psi import psi_implicit
 
 
 class AstraloraLayer(nn.Module):
     def __init__(self, d_inp, d_out, d=None, kind='matvec', rank=1,
-                 samples_bb=100, samples_sm=100, log=print, nepman=None):
+                 samples_bb=100, samples_sm=100, use_sm=True,
+                 log=print, nepman=None):
         super().__init__()
         
         self.d_inp = d_inp
@@ -20,12 +25,17 @@ class AstraloraLayer(nn.Module):
         self.samples_sm = samples_sm
         self.log = log
         self.nepman = nepman
+        self.use_sm = use_sm
 
-        self.log('... [DEBUG] Building Astralora layer : ' + self.extra_repr())
+        self.log('... [DEBUG] Init Astralora layer : ' + self.extra_repr())
 
-        self._init_bb()
-        self._init_factors()
-        
+        self.bb, w = bb_build(self.d_inp, self.d_out, self.d, self.kind)
+        self.w = nn.Parameter(w)
+        self.w_old = None
+
+        self.device = None
+        self.bb_wrapper = None
+      
     def extra_repr(self):
         text = ''
         text += f'd_inp={self.d_inp}, '
@@ -34,144 +44,84 @@ class AstraloraLayer(nn.Module):
         text += f'kind={self.kind}, '
         text += f'rank={self.rank}, '
         text += f'samples_bb={self.samples_bb}, '
-        text += f'samples_sm={self.samples_sm}'
+        text += f'samples_sm={self.samples_sm}, '
+        text += f'use_sm={self.use_sm}'
         return text
 
     def forward(self, x):
+        if self.bb_wrapper is None:
+            self._build(device=x.device)
+
         shape = x.shape
         x = x.reshape(-1, shape[-1])
 
-        y = LowRankGradientFunction.apply(x, self.A, self.U, self.S, self.V)
+        y = self.bb_wrapper(x, self.w, self.U, self.S, self.V)
+        print('---- w', torch.norm(self.w))
 
-        if self.training:
+        if self.training and self.use_sm and self.w_old is not None:
+            print('UPDATE')
             self._update_factors(x.detach().clone(), y.detach().clone())
 
-        self.A_old = self.A.detach().clone()
+        self.w_old = self.w.data.detach().clone()
             
         y = y.reshape(*shape[:-1], y.shape[-1])
+
+        print('---- y', torch.norm(y))
+
         
         return y
 
+    def _build(self, device=None):
+        self.device = device
+        
+        self.generator = torch.Generator(device=self.device)
+        self.generator.manual_seed(42)
+
+        if self.use_sm:
+            U, S, V = bb_appr(self.bb, self.d_inp, self.d_out,
+                self.w.data.clone(), self.rank, self.log, self.nepman)
+            self.register_buffer('U', U)
+            self.register_buffer('S', S)
+            self.register_buffer('V', V)
+            self._debug_err()  
+        else:
+            self.register_buffer('U', None)
+            self.register_buffer('S', None)
+            self.register_buffer('V', None)
+
+        self.bb_wrapper = bb_backprop_wrap(self.bb, self.generator,
+            self.samples_sm, self.samples_bb, use_sm=self.use_sm)
+
     def _debug_err(self):
+        # TODO: now it use the exact form of bb. We should remove it later
         with torch.no_grad():
-            # TODO: fix it:
-            A = self.w.data.clone().reshape(self.d_out, self.d_inp)
-            A_approx = self.U @ self.S @ self.V
-            err = torch.norm(A - A_approx) / torch.norm(A)
+            A = self.w.data.detach().clone().reshape(self.d_out, self.d_inp)
+            A_appr = self.U @ self.S @ self.V
+            err = torch.norm(A_appr - A) / torch.norm(A)
             self.log(f'... [DEBUG] Error A : {err:-12.5e}')
             if self.nepman:
                 self.nepman['astralora/A_error'].append(err)
 
-    def _init_bb(self):
-        self.w = nn.Parameter(torch.Tensor(self.d))
-        nn.init.kaiming_uniform_(self.w, a=math.sqrt(5))
-
-        self.bb = bb_build(self.d_inp, self.d_out, self.d, self.kind)
-
-        #self.A = nn.Parameter(torch.Tensor(self.d_out, self.d_inp))
-        #self.A_old = self.A.detach().clone()
-
-    def _init_factors(self):
-        w = self.w.data.clone()
-        U, S, V = bb_appr(self.bb, self.d_inp, self.d_out, w, self.rank)
-        self.register_buffer('U', U)
-        self.register_buffer('S', S)
-        self.register_buffer('V', V)
-        self._debug_err()            
-
     def _update_factors(self, x, y):
         with torch.no_grad():
+            w_old = self.w_old
+            w_new = self.w.data.detach().clone()
 
-            A_old = self.A_old.data.clone()
-            A_new = self.A.data.clone()
-
-            delta = torch.norm(A_new - A_old) / torch.norm(A_old)
-            self.log(f'... [DEBUG] Delta A : {delta:-12.5e}')
+            delta = torch.norm(w_new - w_old) / torch.norm(w_old)
+            self.log(f'... [DEBUG] Delta w : {delta:-12.5e}')
             if self.nepman:
-                self.nepman['astralora/A_delta'].append(delta)
+                self.nepman['astralora/w_delta'].append(delta)
 
             if delta < 1.E-12:
                 return
 
-            def f_old(x):
-                return x @ A_old.T
+            def f_old(X):
+                return self.bb(X, w_old)
 
-            def f_new(x):
-                return x @ A_new.T
+            def f_new(X):
+                return self.bb(X, w_new)
 
             self.U, self.S, self.V = psi_implicit(f_old, f_new,
-                self.U, self.S, self.V.T, self.samples_sm)
-            self.V = self.V.T
+                self.U, self.S, self.V, self.samples_sm)
 
             self._debug_err()
-
-
-class LowRankGradientFunction(Function):
-    @staticmethod
-    def forward(ctx, x, A, U, S, V):
-        ctx.save_for_backward(x, A, U, S, V)
-        return x @ A.t()
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        x, A, U, S, V = ctx.saved_tensors
-        grad_A = grad_output.t() @ x
-        grad_x = grad_output @ U @ S @ V
-        return grad_x, grad_A, None, None, None
-
-
-def bb_appr(bb, d_inp, d_out, w, rank=10):
-    # TODO: add real bb-approximation here
-    A = w.reshape(d_out, d_inp)
-    
-    U, s, V = torch.linalg.svd(A, full_matrices=False)
-    U = U[:, :rank]
-    S = torch.diag(torch.sqrt(s[:rank]))
-    V = V[:rank, :]
-
-    return U, S, V
-
-
-def bb_build(d_inp, d_out, d, kind='matvec'):
-    if kind == 'matvec':
-        assert d_inp * d_out == d
-    
-        def bb(x, w):
-            A = w.reshape(d_out, d_inp)
-            return x @ A.T
-
-    else:
-        raise NotImplementedError
-    
-    return bb
-
-
-def psi_implicit(f_old, f_new, U0, S0, V0, samples=100):
-    """A projector-splitting integrator (PSI) for dynamical low-rank appr."""
-    def compute_P1(f_new, f_old, V0): # Compute dA @ V0
-        V0_batch = V0.T
-        res_old = f_old(V0_batch)
-        res_new = f_new(V0_batch)
-        return (res_new - res_old).T
-
-    P1 = compute_P1(f_new, f_old, V0)
-
-    K1 = U0 @ S0 + P1
-    U1, S0_tld = torch.linalg.qr(K1, mode='reduced')
-    S0_hat = S0_tld - U1.T @ P1
-
-    def compute_P2(f_new, f_old, U1, d_inp, samples): # Compute dA^t @ U1
-        Z = torch.randn(samples, d_inp, device=U1.device, dtype=U1.dtype)
-        AZ = f_new(Z) - f_old(Z)
-        AZT_U = AZ @ U1
-        return Z.T @ AZT_U / samples
-
-    d_inp = V0.shape[0]
-    P2 = compute_P2(f_new, f_old, U1, d_inp, samples)
-
-    L1 = V0 @ S0_hat.T + P2
-
-    V1, S1_T = torch.linalg.qr(L1, mode='reduced')
-    S1 = S1_T.T
-
-    return U1, S1, V1

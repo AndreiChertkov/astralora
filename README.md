@@ -52,8 +52,10 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 
 3. `chmod +x ../set_neptune_env.sh && ../set_neptune_env.sh`
 
-4. `torchrun --standalone --nproc_per_node=4 run.py --gpus 0,1,2,3 --mode digital --name digital`
+4. `clear && torchrun --standalone --nproc_per_node=1 run.py --gpus 0 --mode digital --name digital`
 
-5. `torchrun --standalone --nproc_per_node=4 run.py --gpus 4,5,6,7 --mode bb_one --name bb_one_rank10 --rank 10`
+5. `clear && torchrun --standalone --nproc_per_node=2 run.py --gpus 2,3 --mode bb --name bb_rank10 --rank 10`
 
-> For tests: `torchrun --standalone --nproc_per_node=4 run.py --gpus 4,5,6,7 --mode bb_one --name test --rank 10`
+6. `clear && torchrun --standalone --nproc_per_node=2 run.py --gpus 4,5 --mode bb --name bb_rank100 --rank 100`
+
+7. `clear && torchrun --standalone --nproc_per_node=2 run.py --gpus 6,7 --mode bb --name bb_stoch --use_stochastic_w`

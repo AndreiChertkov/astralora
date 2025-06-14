@@ -1,6 +1,10 @@
 from datetime import datetime
+from io import StringIO
+import neptune
 import os
+import re
 import shutil
+import sys
 import torch
 
 
@@ -39,6 +43,30 @@ def init_log(msg='', fpath='log.txt', enable=True):
     log(text, 'ini')
 
     return log
+
+
+def init_neptune(name, config_path, args):
+    with open(config_path, 'r') as f:
+        text = f.read()
+        project = text.split('NEPTUNE_PROJECT="')[1].split('"')[0]
+        token = text.split('NEPTUNE_API_TOKEN="')[1].split('"')[0]
+
+    original_stdout = sys.stdout
+    sys.stdout = captured_output = StringIO()
+    nepman = neptune.init_run(project=project, api_token=token, name=name)
+    sys.stdout = original_stdout
+
+    output = captured_output.getvalue()
+    url_match = re.search(r'https://app\.neptune\.ai/[^\s]+', output)
+    if url_match:
+        url = url_match.group()
+    
+    nepman['parameters'] = vars(args)
+    nepman['system/gpu'] = torch.cuda.get_device_name(0)
+    nepman['system/cuda_version'] = torch.version.cuda
+    nepman['system/pytorch_version'] = torch.version.__version__
+
+    return nepman, url
 
 
 def init_path(name, root='result', rewrite=False):

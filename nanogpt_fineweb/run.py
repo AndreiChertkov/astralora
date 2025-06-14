@@ -1,4 +1,3 @@
-import neptune
 import os
 import time
 import torch
@@ -18,15 +17,9 @@ from data import DistributedDataLoader
 from model import Model
 from optimizer_muon import OptimizerMuon
 from utils import init_log
+from utils import init_neptune
 from utils import init_path
 from utils import modify_gpu_args_for_cryri
-
-
-# Neptune configuration
-with open('../set_neptune_env.sh', 'r') as f:
-    text = f.read()
-    NEPTUNE_PROJECT = text.split('NEPTUNE_PROJECT="')[1].split('"')[0]
-    NEPTUNE_API_TOKEN = text.split('NEPTUNE_API_TOKEN="')[1].split('"')[0]
 
 
 @record
@@ -52,19 +45,12 @@ def run(args):
     fpath = os.path.join(args.folder, 'log.txt')
     log = init_log(fpath=fpath, enable=master_process)
 
-    # Initialize Neptune
+    # --- Initialize Neptune:
     if master_process:
-        run = neptune.init_run(
-            project=NEPTUNE_PROJECT,
-            api_token=NEPTUNE_API_TOKEN,
-            name=args.name)
-        # Log hyperparameters:
-        run['parameters'] = vars(args)
-        run['system/gpu'] = torch.cuda.get_device_name(0)
-        run['system/cuda_version'] = torch.version.cuda
-        run['system/pytorch_version'] = torch.version.__version__
+        nepman, url = init_neptune(args.name, '../set_neptune_env.sh', args)
+        log('Use neptune. See: ' + url, 'res')
     else:
-        run = None
+        nepman = None
 
     # --- Calculate the number of steps to take in the validation loop:
     B = args.batch_size
@@ -78,18 +64,19 @@ def run(args):
     
     # --- Log info:
     if master_process:
-        run['info/ddp_world_size'] = ddp_world_size
-        run['info/data_trn'] = loader_trn.info()
-        run['info/data_vld'] = loader_vld.info()
+        nepman['info/ddp_world_size'] = ddp_world_size
+        nepman['info/data_trn'] = loader_trn.info()
+        nepman['info/data_vld'] = loader_vld.info()
         
     x, y = loader_trn.next_batch()
 
     # --- Init the model:
-    model = Model(SimpleNamespace(vocab_size=50304, block_size=1024,
+    model = Model(SimpleNamespace(
+        vocab_size=50304, block_size=1024,
         n_layer=args.num_blocks, n_head=args.num_head, n_embd=768*2,
-        mode=args.mode, rank=args.rank, log=log, nepman=run,
-        samples_bb=args.samples_bb, samples_sm=args.samples_sm,
-        bb_d=args.bb_d, bb_kind=args.bb_kind))
+        mode=args.mode, bb_d=args.bb_d, bb_kind=args.bb_kind,
+        rank=args.rank, samples_bb=args.samples_bb, samples_sm=args.samples_sm,
+        use_sm=not args.use_stochastic_w, log=log, nepman=nepman))
     model = model.cuda()
     model.master_process = master_process
     
@@ -105,17 +92,19 @@ def run(args):
     ctx = torch.amp.autocast(device_type='cuda', dtype=torch.float32)
 
     # --- Init the optimizers:
-    optimizer1 = torch.optim.AdamW(model_raw.get_head_params(),
-        lr=args.lr_embed,
-        betas=(0.9, 0.95),
-        weight_decay=args.weight_decay,
-        fused=True)
+    """
     optimizer2 = OptimizerMuon(model_raw.transformer.h.parameters(),
         lr=args.lr_muon,
         momentum=0.95,
         rank=ddp_rank,
         world_size=ddp_world_size)
-    optimizers = [optimizer1, optimizer2]
+    """
+    optimizer1 = torch.optim.AdamW(model_raw.parameters(),
+        lr=args.lr_embed,
+        betas=(0.9, 0.95),
+        weight_decay=args.weight_decay,
+        fused=True)
+    optimizers = [optimizer1] #, optimizer2]
     
     # --- Set the learning rate decay scheduler (linear warmup and warmdown):
     def get_lr(it):
@@ -173,8 +162,8 @@ def run(args):
             # Log the value:
             if master_process:
                 log(f'VLD | # {step+1:-4d} | loss {loss_vld:-8.1e}', 'res')
-                run['validation/loss'].append(loss_vld.item())
-                run['validation/step'].append(step + 1)
+                nepman['validation/loss'].append(loss_vld.item())
+                nepman['validation/step'].append(step + 1)
 
             # Start the clock again:
             torch.cuda.synchronize()
@@ -212,10 +201,10 @@ def run(args):
         if master_process:
             approx_time = training_time_ms + 1000 * (time.time() - t0)
             log(f'step:{step+1}/{args.num_iterations} train_loss:{loss_trn.item():.4f} train_time:{approx_time/1000:.2f}s step_avg:{approx_time/timed_steps/1000:.2f}s')
-            run['training/step'].append(step + 1)
-            run['training/loss'].append(loss_trn.item())
-            run['training/time'].append(approx_time / 1000)
-            run['training/step_time'].append(approx_time/timed_steps/1000)
+            nepman['training/step'].append(step + 1)
+            nepman['training/loss'].append(loss_trn.item())
+            nepman['training/time'].append(approx_time / 1000)
+            nepman['training/step_time'].append(approx_time/timed_steps/1000)
 
     # --- Save the trained model:
     if master_process and args.save_model:
@@ -233,8 +222,8 @@ def run(args):
     if master_process:
         mem = torch.cuda.max_memory_allocated() // 1024 // 1024
         log(f'Memory used: {mem}', 'res')
-        run['system/memory_used'] = mem
-        run.stop()
+        nepman['system/memory_used'] = mem
+        nepman.stop()
         
     dist.destroy_process_group()
 

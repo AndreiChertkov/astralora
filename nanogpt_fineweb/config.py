@@ -27,9 +27,17 @@ def config():
     parser.add_argument('--mode',
         type=str,
         help='Kind of the model',
-        choices=['digital', 'bb', 'bb_one', 'nograd', 'truelowrank'],
+        choices=[
+            'digital', 'bb', 'bb_all', 'bb_gd_all', 'nograd', 'truelowrank'],
         default='digital')
 
+    parser.add_argument('--use_stochastic_w',
+        type=lambda x: bool(strtobool(x)),
+        help='Do we use stochastic formula to update w; if not, a surrogate model will be used',
+        nargs='?',
+        const=True,
+        default=False)
+    
     parser.add_argument('--rank',
         type=int,
         help='Rank for the low-rank model. Used in bb, bb_one, and truelowrank modes',
@@ -74,7 +82,7 @@ def config():
     parser.add_argument('--batch_size',
         type=int,
         help='Batch size (per device)',
-        default=16)
+        default=8)
 
     parser.add_argument('--sequence_length',
         type=int,

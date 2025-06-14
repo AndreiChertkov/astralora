@@ -159,15 +159,13 @@ class MLP(nn.Module):
                 in_features, out_features,
                 rank=config.rank)
         
-        elif config.mode == 'bb' or (config.mode == 'bb_one' and is_last_layer):
+        elif config.mode == 'bb_all' or (config.mode == 'bb' and is_last_layer):
             return AstraloraLayer(
                 in_features, out_features, config.bb_d, config.bb_kind,
-                rank=config.rank,
-                samples_bb=config.samples_bb, 
-                samples_sm=config.samples_sm,
-                log=config.log, nepman=config.nepman)
+                config.rank, config.samples_bb, config.samples_sm,
+                config.use_sm, log=config.log, nepman=config.nepman)
         
-        elif config.mode == 'bb_gd':
+        elif config.mode == 'bb_gd_all':
             return AstraloraGDLayer(
                 in_features, out_features,
                 rank=config.rank, 
