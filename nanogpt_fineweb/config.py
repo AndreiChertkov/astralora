@@ -102,20 +102,27 @@ def config():
     parser.add_argument('--num_iterations',
         type=int,
         help='Number of iterations to run (note: it was 5100 in base repo)',
-        default=2500)
+        default=5000)
 
     parser.add_argument('--vld_every',
         type=int,
         help='Every how many steps to evaluate validation loss?',
-        default=1000)
+        default=500)
 
     parser.add_argument('--lr_embed',
         type=float,
+        help='Learning rate for head parameters',
         default=0.0036)
 
     parser.add_argument('--lr_muon',
         type=float,
+        help='Learning rate for transformer.h parameters',
         default=0.02)
+    
+    parser.add_argument('--lr_bb',
+        type=float,
+        help='Learning rate for bb-layers',
+        default=0.0036)
     
     parser.add_argument('--surrogate_lr',
         type=float,

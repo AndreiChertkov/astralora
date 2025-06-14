@@ -91,20 +91,42 @@ def run(args):
     model_raw = model.module # Always contains the unwrapped model
     ctx = torch.amp.autocast(device_type='cuda', dtype=torch.float32)
 
+    # --- Collect parameters for training proccess:
+    params1 = model_raw.get_head_params()
+    params2 = [] # model_raw.transformer.h.parameters()
+    params3 = []
+    bb_param_ids = set()
+    for module in model_raw.transformer.h.modules():
+        if hasattr(module, 'bb_wrapper'):
+            for param in module.parameters():
+                bb_param_ids.add(id(param))
+    for param in model_raw.transformer.h.parameters():
+        if id(param) in bb_param_ids:
+            params3.append(param)
+        else:
+            params2.append(param)
+    
+    print('\n\n PARAMS BB FOUND: ', params3, '\n\n')
+
     # --- Init the optimizers:
-    """
-    optimizer2 = OptimizerMuon(model_raw.transformer.h.parameters(),
-        lr=args.lr_muon,
-        momentum=0.95,
-        rank=ddp_rank,
-        world_size=ddp_world_size)
-    """
-    optimizer1 = torch.optim.AdamW(model_raw.parameters(),
+    optimizer1 = torch.optim.AdamW(params1,
         lr=args.lr_embed,
         betas=(0.9, 0.95),
         weight_decay=args.weight_decay,
         fused=True)
-    optimizers = [optimizer1] #, optimizer2]
+    optimizer2 = OptimizerMuon(params2,
+        lr=args.lr_muon,
+        momentum=0.95,
+        rank=ddp_rank,
+        world_size=ddp_world_size)
+    optimizers = [optimizer1, optimizer2]
+    if len(params3) > 0:
+        optimizer3 = torch.optim.AdamW(params3,
+            lr=args.lr_bb,
+            betas=(0.9, 0.95),
+            weight_decay=args.weight_decay,
+            fused=True)
+        optimizers.append(optimizer3)
     
     # --- Set the learning rate decay scheduler (linear warmup and warmdown):
     def get_lr(it):
@@ -161,7 +183,7 @@ def run(args):
             
             # Log the value:
             if master_process:
-                log(f'VLD | # {step+1:-4d} | loss {loss_vld:-8.1e}', 'res')
+                log(f'Validation # {step+1:-4d} | loss {loss_vld:.4f}', 'res')
                 nepman['validation/loss'].append(loss_vld.item())
                 nepman['validation/step'].append(step + 1)
 
