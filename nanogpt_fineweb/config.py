@@ -152,11 +152,6 @@ def config(args_add={}):
         nargs='?',
         const=True,
         default=True)
-    
-    parser.add_argument('--prompt_demo',
-        type=str,
-        help='Simple prompt for model demo after training',
-        default='There was a')
 
     parser.add_argument('--rewrite',
         type=lambda x: bool(strtobool(x)),

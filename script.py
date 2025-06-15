@@ -5,7 +5,7 @@ import subprocess
 import time
 
 
-from config import config
+from nanogpt_fineweb.config import config
 
 
 ARGS_OWN = {
@@ -37,9 +37,9 @@ def get_text_ssh():
         conda activate astralora
         conda install -c conda-forge conda-ecosystem-user-package-isolation -y
         pip install transformers torch==2.6.0 tiktoken datasets opt_einsum tqdm numpy==1.26 rotary_embedding_torch peft huggingface-hub neptune
+        pip install -e .
         conda install gcc_linux-64 -y && conda install gxx_linux-64 -y
-        # cd nanogpt_fineweb
-        torchrun --standalone --nproc_per_node=1 run.py ARGS_PLACEHOLDER
+        torchrun --standalone --nproc_per_node=1 nanogpt_fineweb/run.py ARGS_PLACEHOLDER
         echo ">>> WORK IS DONE <<<"
     """
 
@@ -63,6 +63,10 @@ def get_text_yaml():
 
 def script():
     args = config(ARGS_OWN)
+
+    # TODO: note this:
+    args.root_data = './nanogpt_fineweb/_data/fineweb'
+    args.root = './nanogpt_fineweb/' + args.root
 
     args_str = args_to_str(args)
 
