@@ -67,7 +67,7 @@ def config(args_add={}):
     parser.add_argument('--gpus',
         type=str,
         help='Numbers of used GPUs (comma-separated). Note that "nproc_per_node" argument for torchrun should be chosen accordingly (! TODO ! remove nproc_per_node)',
-        default='0,1,2,3,4,5,6,7')
+        default='0')
 
     parser.add_argument('--data_chunks',
         type=int,
