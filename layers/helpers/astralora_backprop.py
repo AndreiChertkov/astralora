@@ -16,13 +16,13 @@ def bb_backprop_wrap(bb_func, generator, samples_x=1, samples_w=1,
             if use_sm:
                 grad_x = grad_output @ U @ S @ V
             else:
-                grad_x = _backprop_stochastic_x(bb_func, x, w, grad_output, 
-                    generator, samples_x)
+                grad_x = _backprop_stochastic(bb_func, x, w, grad_output, 
+                    generator, samples_x, for_x=True)
 
             if True:
                 # grad_w = grad_output.t() @ x
-                grad_w = _backprop_stochastic_w(bb_func, x, w, grad_output, 
-                    generator, samples_w)
+                grad_w = _backprop_stochastic(bb_func, x, w, grad_output, 
+                    generator, samples_w, for_x=False)
 
             return grad_x, grad_w, None, None, None
 
@@ -30,34 +30,42 @@ def bb_backprop_wrap(bb_func, generator, samples_x=1, samples_w=1,
     return func
 
 
-def _backprop_stochastic_w(bb_func, x, w, grad_output, generator,
-                          samples=1, shift=1.):
+def _backprop_stochastic(bb_func, x, w, grad_output, generator,
+                         samples=1, shift=1., for_x=True):
     device = grad_output.device
 
-    w_fl = w.flatten()
-    dw = torch.zeros(w_fl.shape, device=device)
+    x = torch.clone(x.detach())
+    w = torch.clone(w.detach())
+
+    value = x if for_x else w
+    grad = torch.zeros(value.shape, device=device)
 
     y0 = bb_func(x, w)
     p0 = torch.einsum("ij,ij->i", y0, grad_output)
 
     for _ in range(samples):
-        u_m = torch.zeros(w_fl.shape, device=device)
+        u_m = torch.zeros(value.shape, device=device)
         u_s = torch.tensor(1., device=device)
         u = torch.normal(u_m, std=u_s, generator=generator)
 
-        y_new = bb_func(x, (w_fl + shift * u).reshape(w.shape))
+        if for_x:
+            y_new = bb_func(x + shift * u, w)
+        else:
+            y_new = bb_func(x, w + shift * u)
+
         p_new = torch.einsum("ij,ij->i", y_new, grad_output)
-        sampled_dw = torch.einsum("j,i->j",
-            u, (p_new - p0) / shift)
-        dw = dw + sampled_dw
+        ein = "ij,i->ij" if for_x else "j,i->j"
+        sampled_grad = torch.einsum(ein, u, (p_new - p0) / shift)
+        grad = grad + sampled_grad
 
-    w_grad = dw / shift
+    if for_x:
+        grad = grad / samples
 
-    return w_grad
+    return grad
 
 
-def _backprop_stochastic_x(bb_func, x, w, grad_output, generator,
-                          samples=1, shift=1.):
+def _backprop_stochastic_x_megabatch(bb_func, x, w, grad_output, generator,
+                                     samples=1, shift=1.):
     device = grad_output.device
 
     x = torch.clone(x.detach())

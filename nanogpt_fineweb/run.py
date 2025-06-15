@@ -105,8 +105,6 @@ def run(args):
             params3.append(param)
         else:
             params2.append(param)
-    
-    print('\n\n PARAMS BB FOUND: ', params3, '\n\n')
 
     # --- Init the optimizers:
     optimizer1 = torch.optim.AdamW(params1,

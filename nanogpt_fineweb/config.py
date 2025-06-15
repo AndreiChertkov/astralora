@@ -3,7 +3,7 @@ from distutils.util import strtobool
 import os
 
 
-def config():
+def config(args_add={}):
     parser = argparse.ArgumentParser(
         prog='astralora',
         description='Adaptive Surrogate TRAining with LOw RAnk',
@@ -82,7 +82,7 @@ def config():
     parser.add_argument('--batch_size',
         type=int,
         help='Batch size (per device)',
-        default=8)
+        default=16)
 
     parser.add_argument('--sequence_length',
         type=int,
@@ -165,6 +165,9 @@ def config():
         const=True,
         default=False)
     
+    for name, opts in args_add.items():
+        parser.add_argument(f'--{name}', **opts)
+
     if 'JPY_PARENT_PID' in os.environ:
         # Jupyter can not use the console arguments, hence empty list:
         args = parser.parse_args([])
