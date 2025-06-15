@@ -1,7 +1,9 @@
 from datetime import datetime
 from io import StringIO
 import neptune
+import numpy as np
 import os
+import random
 import re
 import shutil
 import sys
@@ -83,6 +85,14 @@ def init_path(name, root='result', rewrite=False):
         else:
             raise ValueError('Folder with results is already exists')
     os.makedirs(folder)
+
+
+def init_seed(seed=1):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    torch.backends.cudnn.deterministic = True
 
 
 def modify_gpu_args_for_cryri(args):

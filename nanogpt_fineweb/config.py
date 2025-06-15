@@ -38,6 +38,11 @@ def config(args_add={}):
         const=True,
         default=False)
     
+    parser.add_argument('--seed',
+        type=int,
+        help='Initial global random seed value',
+        default=1)
+    
     parser.add_argument('--rank',
         type=int,
         help='Rank for the low-rank model. Used in bb, bb_one, and truelowrank modes',

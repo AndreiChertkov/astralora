@@ -19,12 +19,16 @@ from optimizer_muon import OptimizerMuon
 from utils import init_log
 from utils import init_neptune
 from utils import init_path
+from utils import init_seed
 from utils import modify_gpu_args_for_cryri
 
 
 @record
 @torch.compiler.disable
 def run(args):
+    # --- Set the global seed value
+    init_seed(args.seed)
+
     # --- Set up DDP (distributed data parallel) computation mode:
     dist.init_process_group(backend='nccl')
     ddp_rank = int(os.environ['RANK'])
@@ -47,7 +51,7 @@ def run(args):
 
     # --- Initialize Neptune:
     if master_process:
-        nepman, url = init_neptune(args.name, '../set_neptune_env.sh', args)
+        nepman, url = init_neptune(args.name, 'set_neptune_env.sh', args)
         log('Use neptune. See: ' + url, 'res')
     else:
         nepman = None
