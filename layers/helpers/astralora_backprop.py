@@ -58,8 +58,7 @@ def _backprop_stochastic(bb_func, x, w, grad_output, generator,
         sampled_grad = torch.einsum(ein, u, (p_new - p0) / shift)
         grad = grad + sampled_grad
 
-    if for_x:
-        grad = grad / samples
+    grad = grad / samples
 
     return grad
 
