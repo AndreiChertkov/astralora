@@ -55,6 +55,9 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 4. Run the computation with the command like `torchrun --standalone --nproc_per_node=1 run.py --gpus 3 --mode digital --name digital`
 
 
+clear && torchrun --standalone --nproc_per_node=1 nanogpt_fineweb/run.py --gpus 7 --mode bb --name bb_stoch_samples100_test --use_stochastic_w --samples_bb 100 --samples_sm 100 --rewrite --root_data ./nanogpt_fineweb/_data/fineweb --root ./nanogpt_fineweb/result
+
+
 ## Computations
 
 ### nanogpt_fineweb (hopper)
@@ -80,31 +83,40 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 ### nanogpt_fineweb (jobs)
 
 - `clear && python script.py --mode digital --name digital`
+    > RUNS `cryri --logs 699dd35e`
 
 - `clear && python script.py --mode bb --name bb_rank10_samples1 --rank 10 --samples_bb 1 --samples_sm 1`
+    > RUNS `cryri --logs d416bc1f`
 
 - `clear && python script.py --mode bb --name bb_rank10_samples10 --rank 10 --samples_bb 10 --samples_sm 10`
+    > RUNS `cryri --logs 1d3cfbd1`
 
 - `clear && python script.py --mode bb --name bb_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100`
+    > RUNS `cryri --logs 2f74fe47`
 
 - `clear && python script.py --mode bb --name bb_rank10_samples500 --rank 10 --samples_bb 500 --samples_sm 500`
+    > RUNS `cryri --logs 4bf8cee9`
 
 - `clear && python script.py --mode bb --use_stochastic_w --name bb_stoch_samples1 --rank 10 --samples_bb 1 --samples_sm 1`
+    > RUNS `cryri --logs a63f3580`
 
 - `clear && python script.py --mode bb --use_stochastic_w --name bb_stoch_samples10 --rank 10 --samples_bb 10 --samples_sm 10`
+    > RUNS `cryri --logs f8a2f856`
 
 - `clear && python script.py --mode bb --use_stochastic_w --name bb_stoch_samples100 --rank 10 --samples_bb 100 --samples_sm 100`
+    > RUNS `cryri --logs bd3ff37e`
 
 - `clear && python script.py --mode bb --use_stochastic_w --name bb_stoch_samples500 --rank 10 --samples_bb 500 --samples_sm 500`
+    > RUNS `cryri --logs d98a8351`
 
 - `clear && python script.py --mode bb --name bb_rank1_samples100 --rank 1 --samples_bb 100 --samples_sm 100`
+    > RUNS `cryri --logs 964a1849`
 
 - `clear && python script.py --mode bb --name bb_rank100_samples100 --rank 100 --samples_bb 100 --samples_sm 100`
+    > RUNS `cryri --logs 3479d5e7`
 
 - `clear && python script.py --mode digital --name digital_seed2 --seed 2`
+    > RUNS `cryri --logs c5eb258a`
 
 - `clear && python script.py --mode digital --name digital_seed3 --seed 3`
-
-- `clear && python script.py --mode bb --name bb_rank10_samples100_seed2 --rank 10 --samples_bb 100 --samples_sm 100 --seed 2`
-
-- `clear && python script.py --mode bb --name bb_rank10_samples100_seed3 --rank 10 --samples_bb 100 --samples_sm 100 --seed 3`
+    > RUNS `cryri --logs e12349b8`
