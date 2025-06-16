@@ -21,9 +21,9 @@ def test_backprop_accuracy(device=None):
         return x @ w_2d
     
     # Generate random input data
-    batch_size = 2
-    input_dim = 100
-    output_dim = 100
+    batch_size = 16000
+    input_dim = 10
+    output_dim = 10
     
     x = torch.randn(batch_size, input_dim, device=device, requires_grad=True)
     w = torch.randn(input_dim, output_dim, device=device, requires_grad=True)
