@@ -163,7 +163,8 @@ class MLP(nn.Module):
             return AstraloraLayer(
                 in_features, out_features, config.bb_d, config.bb_kind,
                 config.rank, config.samples_bb, config.samples_sm,
-                config.use_sm, log=config.log, nepman=config.nepman)
+                config.use_sm, config.use_gd_update, config.gd_update_iters,
+                log=config.log, nepman=config.nepman)
         
         elif config.mode == 'bb_gd_all':
             return AstraloraGDLayer(

@@ -80,7 +80,10 @@ def run(args):
         n_layer=args.num_blocks, n_head=args.num_head, n_embd=768*2,
         mode=args.mode, bb_d=args.bb_d, bb_kind=args.bb_kind,
         rank=args.rank, samples_bb=args.samples_bb, samples_sm=args.samples_sm,
-        use_sm=not args.use_stochastic_w, log=log, nepman=nepman))
+        use_sm=not args.use_stochastic_w,
+        use_gd_update=args.use_gd_update,
+        gd_update_iters=args.gd_update_iters,
+        log=log, nepman=nepman))
     model = model.cuda()
     model.master_process = master_process
     

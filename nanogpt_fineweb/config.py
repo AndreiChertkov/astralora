@@ -165,6 +165,17 @@ def config(args_add={}):
         const=True,
         default=False)
     
+    parser.add_argument('--use_gd_update',
+        type=lambda x: bool(strtobool(x)),
+        help='It true, we use gd-based naive update instead of PSI',
+        nargs='?',
+        const=True,
+        default=False)
+
+    parser.add_argument('--gd_update_iters',
+        type=int,
+        default=1)
+    
     for name, opts in args_add.items():
         parser.add_argument(f'--{name}', **opts)
 

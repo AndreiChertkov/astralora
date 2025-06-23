@@ -10,7 +10,8 @@ from .helpers.astralora_psi import psi_implicit
 
 class AstraloraLayer(nn.Module):
     def __init__(self, d_inp, d_out, d=None, kind='matvec', rank=1,
-                 samples_bb=100, samples_sm=100, use_sm=True,
+                 samples_bb=100, samples_sm=100, use_sm=True, 
+                 use_gd_update=False, gd_update_iters=1,
                  log=print, nepman=None):
         super().__init__()
         
@@ -26,6 +27,8 @@ class AstraloraLayer(nn.Module):
         self.log = log
         self.nepman = nepman
         self.use_sm = use_sm
+        self.use_gd_update = use_gd_update
+        self.gd_update_iters = gd_update_iters
 
         self.log('... [DEBUG] Init Astralora layer : ' + self.extra_repr())
 
@@ -45,7 +48,8 @@ class AstraloraLayer(nn.Module):
         text += f'rank={self.rank}, '
         text += f'samples_bb={self.samples_bb}, '
         text += f'samples_sm={self.samples_sm}, '
-        text += f'use_sm={self.use_sm}'
+        text += f'use_sm={self.use_sm}, '
+        text += f'use_gd_update={self.use_gd_update}'
         return text
 
     def forward(self, x):
@@ -110,13 +114,38 @@ class AstraloraLayer(nn.Module):
             if delta < 1.E-12:
                 return
 
-            def f_old(X):
-                return self.bb(X, w_old)
+            if self.use_gd_update:
+                self._update_factors_gd(x, y)
+            else:
+                def f_old(X):
+                    return self.bb(X, w_old)
 
-            def f_new(X):
-                return self.bb(X, w_new)
+                def f_new(X):
+                    return self.bb(X, w_new)
 
-            self.U, self.S, self.V = psi_implicit(f_old, f_new,
-                self.U, self.S, self.V, self.samples_sm)
+                self.U, self.S, self.V = psi_implicit(f_old, f_new,
+                    self.U, self.S, self.V, self.samples_sm)
 
             self._debug_err()
+
+    def _update_factors_gd(self, x, y, lr=1.E-2):
+        self.U.requires_grad_(True)
+        self.S.requires_grad_(True)
+        self.V.requires_grad_(True)
+
+        for _ in range(self.gd_update_iters):
+            y_pred = x @ self.V.t() @ self.S.t() @ self.U.t()
+            loss = F.mse_loss(y_pred, y)
+            grads = torch.autograd.grad(loss, [self.U, self.S, self.V])
+            with torch.no_grad():
+                self.U -= lr * grads[0]
+                self.S -= lr * grads[1]
+                self.V -= lr * grads[2]
+
+        self.U.requires_grad_(False)
+        self.S.requires_grad_(False)
+        self.V.requires_grad_(False)
+
+        self.log(f'... [DEBUG] GD update loss: {loss.item():-12.5e}')
+        if self.nepman:
+            self.nepman['astralora/gd_update_loss'].append(loss.item())
