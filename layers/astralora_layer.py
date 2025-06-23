@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 from .helpers.astralora_backprop import bb_backprop_wrap
@@ -114,9 +115,10 @@ class AstraloraLayer(nn.Module):
             if delta < 1.E-12:
                 return
 
-            if self.use_gd_update:
-                self._update_factors_gd(x, y)
-            else:
+        if self.use_gd_update:
+            self._update_factors_gd(x, y)
+        else:
+            with torch.no_grad():
                 def f_old(X):
                     return self.bb(X, w_old)
 
@@ -126,25 +128,24 @@ class AstraloraLayer(nn.Module):
                 self.U, self.S, self.V = psi_implicit(f_old, f_new,
                     self.U, self.S, self.V, self.samples_sm)
 
+        with torch.no_grad():
             self._debug_err()
 
     def _update_factors_gd(self, x, y, lr=1.E-2):
-        self.U.requires_grad_(True)
-        self.S.requires_grad_(True)
-        self.V.requires_grad_(True)
-
         for _ in range(self.gd_update_iters):
-            y_pred = x @ self.V.t() @ self.S.t() @ self.U.t()
+            U = self.U.detach().requires_grad_(True)
+            S = self.S.detach().requires_grad_(True)
+            V = self.V.detach().requires_grad_(True)
+            
+            y_pred = x @ V.t() @ S.t() @ U.t()
+            
             loss = F.mse_loss(y_pred, y)
-            grads = torch.autograd.grad(loss, [self.U, self.S, self.V])
+            grads = torch.autograd.grad(loss, [U, S, V])
+            
             with torch.no_grad():
-                self.U -= lr * grads[0]
-                self.S -= lr * grads[1]
-                self.V -= lr * grads[2]
-
-        self.U.requires_grad_(False)
-        self.S.requires_grad_(False)
-        self.V.requires_grad_(False)
+                self.U.data.copy_(self.U - lr * grads[0])
+                self.S.data.copy_(self.S - lr * grads[1])
+                self.V.data.copy_(self.V - lr * grads[2])
 
         self.log(f'... [DEBUG] GD update loss: {loss.item():-12.5e}')
         if self.nepman:
