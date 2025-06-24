@@ -45,7 +45,7 @@ def test_backprop_accuracy(device=None):
     w.grad = None
     
     # Test different numbers of samples
-    sample_counts = [1, 10, 100, 1000]
+    sample_counts = [1, 10, 100, 1000, 10000]
     errors_x = []
     errors_w = []
     

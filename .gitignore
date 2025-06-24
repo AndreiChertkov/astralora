@@ -18,3 +18,4 @@ set_neptune_env.sh
 *.env
 .env
 .neptune
+*.png
