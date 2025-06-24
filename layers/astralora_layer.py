@@ -131,7 +131,7 @@ class AstraloraLayer(nn.Module):
         with torch.no_grad():
             self._debug_err()
 
-    def _update_factors_gd(self, x, y, lr=1.E-2):
+    def _update_factors_gd(self, x, y, lr=1.E-4):
         for _ in range(self.gd_update_iters):
             U = self.U.detach().requires_grad_(True)
             S = self.S.detach().requires_grad_(True)

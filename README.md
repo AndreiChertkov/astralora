@@ -124,19 +124,16 @@ clear && torchrun --standalone --nproc_per_node=1 nanogpt_fineweb/run.py --gpus 
 ## new run
 
 - `clear && python script.py --mode digital --name digital --root result_new`
-    > RUNS `cryri --logs 58716ad6`
+    > DONE `cryri --logs 58716ad6`
 
-- `clear && python script.py --mode bb --name bb_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100 --root result_new`
-    > RUNS `cryri --logs 05c5538c`
+- `clear && python script.py --mode bb --name bb_rank10_gd_update_iters1_lr4 --rank 10 --root result_new --use_gd_update --gd_update_iters 1`
+    > DONE `cryri --logs f4b44ae1`
 
- - `clear && python script.py --mode bb --name bb_rank10_gd_update_iters1 --rank 10 --root result_new --use_gd_update --gd_update_iters 1`
-    > PEND `cryri --logs 017c0ab2`
+ - `clear && python script.py --mode bb --name bb_rank10_gd_update_iters10_lr4 --rank 10 --root result_new --use_gd_update --gd_update_iters 10`
+    > DONE `cryri --logs cff4be3a`
 
- - `clear && python script.py --mode bb --name bb_rank10_gd_update_iters10 --rank 10 --root result_new --use_gd_update --gd_update_iters 10`
-    > PEND `cryri --logs 39812612`
+ - `clear && python script.py --mode bb --name bb_rank10_gd_update_iters100_lr4 --rank 10 --root result_new --use_gd_update --gd_update_iters 100`
+    > DONE `cryri --logs 0bf5cd38`
 
- - `clear && python script.py --mode bb --name bb_rank10_gd_update_iters100 --rank 10 --root result_new --use_gd_update --gd_update_iters 100`
-    > PEND `cryri --logs b8b5a609`
-
- - `clear && python script.py --mode bb --name bb_rank10_gd_update_iters1000 --rank 10 --root result_new --use_gd_update --gd_update_iters 1000`
-    > PEND `cryri --logs 6f4e24a7`
+ - `clear && python script.py --mode bb --name bb_rank10_gd_update_iters1000_lr4 --rank 10 --root result_new --use_gd_update --gd_update_iters 1000`
+    > DONE `cryri --logs 235629bd`
