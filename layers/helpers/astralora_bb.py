@@ -3,7 +3,31 @@ import torch
 import numpy as np
 
 
-def bb_appr(bb, d_inp, d_out, w, rank=10, log=print, nepman=None, n_samples=1000, lr=0.01, max_iter=50):
+def bb_appr_w_svd(bb, d_inp, d_out, w, rank=10, log=print, nepman=None):
+    # Use SVD to approximate low-rank decomposition from samples
+
+    # Get device from input tensor
+    device = w.device
+    # Generate basis vectors for X (identity matrix)
+    X_samples = torch.eye(d_inp, device=device)
+    
+    # Compute target outputs using the black-box function
+    Y_target = bb(X_samples, w)  # Shape: (d_inp, d_out)
+    
+    # Perform SVD on the target matrix Y_target
+    U, S, Vt = torch.linalg.svd(Y_target, full_matrices=False)
+    
+    # Crop to desired rank
+    U = U[:, :rank]  # (d_inp, rank)
+    S = S[:rank]     # (rank,)
+    Vt = Vt[:rank, :]  # (rank, d_out)
+    
+    return U, S, Vt
+    
+    
+
+
+def bb_appr_w_als(bb, d_inp, d_out, w, rank=10, log=print, nepman=None, n_samples=1000, lr=0.01, max_iter=50):
     # Use ALS to approximate low-rank decomposition from samples
     
     # Get device from input tensor
@@ -21,7 +45,9 @@ def bb_appr(bb, d_inp, d_out, w, rank=10, log=print, nepman=None, n_samples=1000
         max_iter=max_iter, 
         tol=1e-6,
         random_state=42,
-        device=device
+        device=device,
+        use_stochastic=True,  # Use stochastic updates for large matrices
+        learning_rate=lr
     )
     
     # Fit the model
@@ -86,66 +112,139 @@ class MatrixFactorizationALS:
     where B is (n x r) and C is (r x n) with r << n
     """
     
-    def __init__(self, rank, max_iter=100, tol=1e-6, random_state=42, device='cpu'):
+    def __init__(self, rank, max_iter=100, tol=1e-6, random_state=42, device='cpu', 
+                 use_stochastic=True, learning_rate=0.01, momentum=0.9):
         self.rank = rank
         self.max_iter = max_iter
         self.tol = tol
         self.random_state = random_state
         self.device = device
+        self.use_stochastic = use_stochastic
+        self.learning_rate = learning_rate
+        self.momentum = momentum
         self.B = None
         self.C = None
         self.losses = []
         
-    def _initialize_factors(self, n, dtype=None):
-        """Initialize B and C matrices randomly"""
+        # For momentum
+        self.B_momentum = None
+        self.C_momentum = None
+        
+    def _initialize_factors(self, d_inp, d_out, dtype=None):
+        """Initialize B and C matrices randomly with correct dimensions"""
         torch.manual_seed(self.random_state)
-        self.B = torch.randn(n, self.rank, device=self.device, dtype=dtype) * 0.1
-        self.C = torch.randn(self.rank, n, device=self.device, dtype=dtype) * 0.1
+        
+        # B: (d_inp, rank), C: (rank, d_out)
+        # Xavier initialization
+        std_B = math.sqrt(2.0 / (d_inp + self.rank))
+        std_C = math.sqrt(2.0 / (self.rank + d_out))
+        
+        self.B = torch.randn(d_inp, self.rank, device=self.device, dtype=dtype) * std_B
+        self.C = torch.randn(self.rank, d_out, device=self.device, dtype=dtype) * std_C
+        
+        # Initialize momentum buffers
+        if self.use_stochastic:
+            self.B_momentum = torch.zeros_like(self.B)
+            self.C_momentum = torch.zeros_like(self.C)
     
     def _compute_loss(self, X, Y):
         """Compute reconstruction loss"""
         Y_pred = X @ self.B @ self.C
         return torch.mean((Y - Y_pred) ** 2).item()
     
-    def _update_B(self, X, Y):
-        batch_size, n = X.shape
+    def _update_B_stochastic(self, X, Y):
+        """Stochastic update for B using gradient descent with ALS-inspired direction"""
+        batch_size = X.shape[0]
+        
+        # Current prediction
+        Y_pred = X @ self.B @ self.C
+        residual = Y - Y_pred  # (batch_size, d_out)
+        
+        # Compute gradient direction inspired by ALS
+        # For ALS: B_new = (X.T @ X)^{-1} @ X.T @ Y @ C.T @ (C @ C.T)^{-1}
+        # Stochastic approximation: use gradients but in ALS direction
+        
+        # Gradient w.r.t. B: -2 * X.T @ residual @ C.T
+        grad_B = -2.0 * X.T @ residual @ self.C.T / batch_size
+        
+        # Use ALS-inspired scaling: multiply by (C @ C.T)^{-1}
+        CCT = self.C @ self.C.T  # (rank, rank)
+        try:
+            # Only invert small (rank x rank) matrix
+            CCT_inv = torch.linalg.pinv(CCT + 1e-6 * torch.eye(self.rank, device=self.device))
+            direction_B = grad_B @ CCT_inv
+        except:
+            # Fallback to simple gradient
+            direction_B = grad_B
+        
+        # Momentum update
+        self.B_momentum = self.momentum * self.B_momentum + (1 - self.momentum) * direction_B
+        
+        # Update B
+        self.B = self.B - self.learning_rate * self.B_momentum
+    
+    def _update_C_stochastic(self, X, Y):
+        """Stochastic update for C using gradient descent with ALS-inspired direction"""
+        batch_size = X.shape[0]
+        
+        # Current prediction
+        Y_pred = X @ self.B @ self.C
+        residual = Y - Y_pred  # (batch_size, d_out)
+        
+        # Gradient w.r.t. C: -2 * B.T @ X.T @ residual
+        grad_C = -2.0 * self.B.T @ X.T @ residual / batch_size
+        
+        # Use ALS-inspired scaling: multiply by (B.T @ B)^{-1}
+        BTB = self.B.T @ self.B  # (rank, rank)
+        try:
+            # Only invert small (rank x rank) matrix
+            BTB_inv = torch.linalg.pinv(BTB + 1e-6 * torch.eye(self.rank, device=self.device))
+            direction_C = BTB_inv @ grad_C
+        except:
+            # Fallback to simple gradient
+            direction_C = grad_C
+        
+        # Momentum update
+        self.C_momentum = self.momentum * self.C_momentum + (1 - self.momentum) * direction_C
+        
+        # Update C
+        self.C = self.C - self.learning_rate * self.C_momentum
+    
+    def _update_B_exact(self, X, Y):
+        """Exact ALS update for B (expensive for large matrices)"""
+        # This is the original expensive version - avoid for large matrices
+        batch_size, d_inp = X.shape
         dtype = X.dtype
         
-        CCT = self.C @ self.C.T  # Shape: (r, r)
+        CCT = self.C @ self.C.T  # Shape: (rank, rank)
         try:
-            CCT_inv = torch.linalg.pinv(CCT)
-            W = Y @ self.C.T @ CCT_inv  # Shape: (batch_size, r)
+            CCT_inv = torch.linalg.pinv(CCT + 1e-6 * torch.eye(self.rank, device=self.device, dtype=dtype))
+            
+            # More efficient formulation: avoid computing X @ X.T
+            XTY = X.T @ Y  # (d_inp, d_out)
+            XTYCT = XTY @ self.C.T  # (d_inp, rank)
+            self.B = XTYCT @ CCT_inv  # (d_inp, rank)
+            
         except RuntimeError:
-            reg = 1e-6
-            CCT_reg = CCT + reg * torch.eye(CCT.shape[0], device=self.device, dtype=dtype)
-            W = Y @ self.C.T @ torch.linalg.inv(CCT_reg)
-
-        XXT = X @ X.T  # Shape: (batch_size, batch_size)
-        try:
-            XXT_inv = torch.linalg.pinv(XXT)
-            self.B = X.T @ XXT_inv @ W  # Shape: (n, r)
-        except RuntimeError:
-            reg = 1e-6
-            XXT_reg = XXT + reg * torch.eye(XXT.shape[0], device=self.device, dtype=dtype)
-            self.B = X.T @ torch.linalg.inv(XXT_reg) @ W
+            # Fallback to gradient-based update
+            self._update_B_stochastic(X, Y)
     
-    def _update_C(self, X, Y):
+    def _update_C_exact(self, X, Y):
+        """Exact ALS update for C"""
         Z = X @ self.B  # Shape: (batch_size, rank)
         dtype = X.dtype
         
         try:
-            ZTZ = Z.T @ Z  # Shape: (r, r)
-            ZTY = Z.T @ Y  # Shape: (r, n)
-            ZTZ_inv = torch.linalg.pinv(ZTZ)
-            self.C = ZTZ_inv @ ZTY  # Shape: (r, n)
+            ZTZ = Z.T @ Z  # Shape: (rank, rank)
+            ZTY = Z.T @ Y  # Shape: (rank, d_out)
+            ZTZ_inv = torch.linalg.pinv(ZTZ + 1e-6 * torch.eye(self.rank, device=self.device, dtype=dtype))
+            self.C = ZTZ_inv @ ZTY  # Shape: (rank, d_out)
         except RuntimeError:
-            # Fallback to regularized version
-            reg = 1e-6
-            ZTZ_reg = ZTZ + reg * torch.eye(ZTZ.shape[0], device=self.device, dtype=dtype)
-            self.C = torch.linalg.inv(ZTZ_reg) @ Z.T @ Y
+            # Fallback to gradient-based update
+            self._update_C_stochastic(X, Y)
 
     def _sample_minibatch(self, X, Y, minibatch_size):
-        batch_size, n = X.shape
+        batch_size, d_inp = X.shape
         if minibatch_size < batch_size:
             indices = torch.randperm(batch_size, device=self.device)[:minibatch_size]
             X_batch = X[indices]
@@ -156,32 +255,39 @@ class MatrixFactorizationALS:
         return X_batch, Y_batch
 
     def fit(self, X, Y, verbose=True, minibatch_size=100):
-        batch_size, n = X.shape
-        assert Y.shape == (batch_size, n), "X and Y must have the same shape"
-        # Initialize factors with same dtype as input
-        self._initialize_factors(n, dtype=X.dtype)
+        batch_size, d_inp = X.shape
+        _, d_out = Y.shape
+        
+        # Initialize factors with correct dimensions
+        self._initialize_factors(d_inp, d_out, dtype=X.dtype)
         
         prev_loss = float('inf')
         
         for iteration in range(self.max_iter):
+            # Use same minibatch for both updates for consistency
             X_batch, Y_batch = self._sample_minibatch(X, Y, minibatch_size)
-            self._update_B(X_batch, Y_batch)
-
-            X_batch, Y_batch = self._sample_minibatch(X, Y, minibatch_size)
-            self._update_C(X_batch, Y_batch)
             
-            current_loss = self._compute_loss(X, Y)
-            self.losses.append(current_loss)
+            if self.use_stochastic:
+                self._update_B_stochastic(X_batch, Y_batch)
+                self._update_C_stochastic(X_batch, Y_batch)
+            else:
+                self._update_B_exact(X_batch, Y_batch)
+                self._update_C_exact(X_batch, Y_batch)
             
-            if verbose and iteration % 10 == 0:
-                print(f"Iteration {iteration}: Loss = {current_loss:.6f}")
-            
-            if abs(prev_loss - current_loss) < self.tol:
-                if verbose:
-                    print(f"Converged at iteration {iteration}")
-                break
+            # Compute loss on full dataset periodically to track progress
+            if iteration % 5 == 0 or iteration == self.max_iter - 1:
+                current_loss = self._compute_loss(X, Y)
+                self.losses.append(current_loss)
                 
-            prev_loss = current_loss
+                if verbose and iteration % 10 == 0:
+                    print(f"Iteration {iteration}: Loss = {current_loss:.6f}")
+                
+                if abs(prev_loss - current_loss) < self.tol:
+                    if verbose:
+                        print(f"Converged at iteration {iteration}")
+                    break
+                    
+                prev_loss = current_loss
         
         return self
     
