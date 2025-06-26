@@ -142,12 +142,12 @@ clear && torchrun --standalone --nproc_per_node=1 nanogpt_fineweb/run.py --gpus 
 ## new run 2
 
 - `clear && python script.py --mode digital --name digital --root result_new2`
-    > PEND `cryri --logs ef69976d`
+    > RUNS `cryri --logs ef69976d`
 
 - `clear && python script.py --mode bb --name bb_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100 --root result_new2`
-    > PEND `cryri --logs 62f655d8`
+    > PEND `cryri --logs 8e7562dd`
 
 - `clear && python script.py --mode bb --name bb_slm_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100 --root result_new2 --bb_kind slm`
-    > PEND `cryri --logs 5d2020ce`
+    > PEND `cryri --logs 2e043773`
 
     

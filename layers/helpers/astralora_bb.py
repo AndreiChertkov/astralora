@@ -8,23 +8,16 @@ def bb_appr(*args, **kwargs):
 
 
 def bb_appr_w_svd(bb, d_inp, d_out, w, rank=10, log=print, nepman=None):
-    # Use SVD to approximate low-rank decomposition from samples
-
-    # Get device from input tensor
     device = w.device
-    # Generate basis vectors for X (identity matrix)
+
     X_samples = torch.eye(d_inp, device=device)
+    A = bb(X_samples, w)
     
-    # Compute target outputs using the black-box function
-    Y_target = bb(X_samples, w)  # Shape: (d_inp, d_out)
+    U, S, Vt = torch.linalg.svd(A, full_matrices=False)
     
-    # Perform SVD on the target matrix Y_target
-    U, S, Vt = torch.linalg.svd(Y_target, full_matrices=False)
-    
-    # Crop to desired rank
-    U = U[:, :rank]  # (d_inp, rank)
-    S = S[:rank]     # (rank,)
-    Vt = Vt[:rank, :]  # (rank, d_out)
+    U = U[:, :rank]
+    S = torch.diag(S[:rank])
+    Vt = Vt[:rank, :]
     
     return U, S, Vt
     
