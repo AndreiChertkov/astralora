@@ -57,7 +57,8 @@ def config(args_add={}):
         type=str, 
         help="Kind of the used black box",
         choices=[
-            "matvec"],                # Simple linear-like layer
+            "matvec",                # Simple linear-like layer
+            "slm"],                  # SLM layer
         default="matvec")
     
     parser.add_argument('--samples_bb',

@@ -1,6 +1,6 @@
 import math
-import torch
 import numpy as np
+import torch
 
 
 def bb_appr(*args, **kwargs):
@@ -91,9 +91,24 @@ def bb_build(d_inp, d_out, d, kind='matvec'):
     if kind == 'matvec':
         assert d_inp * d_out == d
     
-        def bb(X, w):
+        def bb(x, w):
             A = w.reshape(d_out, d_inp)
-            return X @ A.T
+            return x @ A.T
+
+        w = torch.empty((d_out, d_inp))
+        torch.nn.init.kaiming_uniform_(w, a=math.sqrt(5))
+        w = w.reshape(-1)
+
+    elif kind == 'slm':
+        assert d_inp * d_out == d
+
+        def bb(x, w):
+            x = x.to(torch.cfloat)
+            w = w.view(d_out, d_inp)
+            w = torch.exp(1j * w)
+            y = torch.einsum("ij, ...j -> ...i", w, x)
+            y = y / torch.sqrt(torch.tensor(d_inp, dtype=torch.cfloat))
+            return torch.real(y)
 
         w = torch.empty((d_out, d_inp))
         torch.nn.init.kaiming_uniform_(w, a=math.sqrt(5))

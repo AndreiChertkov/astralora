@@ -137,3 +137,17 @@ clear && torchrun --standalone --nproc_per_node=1 nanogpt_fineweb/run.py --gpus 
 
  - `clear && python script.py --mode bb --name bb_rank10_gd_update_iters1000_lr4 --rank 10 --root result_new --use_gd_update --gd_update_iters 1000`
     > DONE `cryri --logs 235629bd`
+
+
+## new run 2
+
+- `clear && python script.py --mode digital --name digital --root result_new2`
+    > PEND `cryri --logs ef69976d`
+
+- `clear && python script.py --mode bb --name bb_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100 --root result_new2`
+    > PEND `cryri --logs 62f655d8`
+
+- `clear && python script.py --mode bb --name bb_slm_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100 --root result_new2 --bb_kind slm`
+    > PEND `cryri --logs 5d2020ce`
+
+    
