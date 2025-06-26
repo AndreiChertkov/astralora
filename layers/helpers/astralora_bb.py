@@ -3,6 +3,10 @@ import torch
 import numpy as np
 
 
+def bb_appr(*args, **kwargs):
+    return bb_appr_w_svd(*args, **kwargs)
+
+
 def bb_appr_w_svd(bb, d_inp, d_out, w, rank=10, log=print, nepman=None):
     # Use SVD to approximate low-rank decomposition from samples
 
@@ -24,10 +28,9 @@ def bb_appr_w_svd(bb, d_inp, d_out, w, rank=10, log=print, nepman=None):
     
     return U, S, Vt
     
-    
 
-
-def bb_appr_w_als(bb, d_inp, d_out, w, rank=10, log=print, nepman=None, n_samples=1000, lr=0.01, max_iter=50):
+def bb_appr_w_als(bb, d_inp, d_out, w, rank=10, log=print, nepman=None, 
+                  n_samples=1000, lr=0.01, max_iter=50):
     # Use ALS to approximate low-rank decomposition from samples
     
     # Get device from input tensor
