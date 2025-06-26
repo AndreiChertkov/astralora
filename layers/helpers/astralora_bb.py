@@ -11,7 +11,7 @@ def bb_appr_w_svd(bb, d_inp, d_out, w, rank=10, log=print, nepman=None):
     device = w.device
 
     X_samples = torch.eye(d_inp, device=device)
-    A = bb(X_samples, w)
+    A = bb(X_samples, w).t()
     
     U, S, Vt = torch.linalg.svd(A, full_matrices=False)
     
