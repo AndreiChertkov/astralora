@@ -42,22 +42,28 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 ### cnn_cifar
 
 - `clear && python script.py --task cnn_cifar --mode digital --name digital`
-    > TODO `cryri --logs ?`
+    > PEND `cryri --logs 29d16c0e`
+
+#### rank dep
 
 - `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank1_samples100 --rank 1 --samples_bb 100 --samples_sm 100`
-    > TODO `cryri --logs ?`
+    > PEND `cryri --logs 643fcc64`
 
 - `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank5_samples100 --rank 5 --samples_bb 100 --samples_sm 100`
-    > TODO `cryri --logs ?`
+    > PEND `cryri --logs 0a93a60f`
 
 - `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100`
-    > TODO `cryri --logs ?`
+    > PEND `cryri --logs 0e95cf18`
 
 - `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank50_samples100 --rank 50 --samples_bb 100 --samples_sm 100`
-    > TODO `cryri --logs ?`
+    > PEND `cryri --logs cbc0eb15`
 
 - `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank100_samples100 --rank 100 --samples_bb 100 --samples_sm 100`
-    > TODO `cryri --logs ?`
+    > PEND `cryri --logs c2d0df60`
+
+#### samples dep
+
+- TODO
 
 ### nanogpt_fineweb [OUTDATED]
 
