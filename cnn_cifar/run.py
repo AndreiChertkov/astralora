@@ -1,6 +1,3 @@
-import matplotlib.pyplot as plt
-import numpy as np
-import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -45,7 +42,7 @@ class Model(nn.Module):
         
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(128 * 4 * 4, 1024),
+            nn.Linear(128 * 4 * 4, 1024),  # This layer will be replaced by BB
             nn.BatchNorm1d(1024),
             nn.ReLU(inplace=True),
             nn.Dropout(0.5),
@@ -72,15 +69,9 @@ def run():
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
         factor=0.5, patience=5)
 
-    losses_trn = []
-    losses_tst = []
-
-    accs_trn = []
-    accs_tst = []
-
     for epoch in range(ast.args.epochs):
         model.train()
-        running_loss = 0.0
+        running_loss = 0.
         correct = 0
         total = 0
         
@@ -100,11 +91,9 @@ def run():
         
         loss_trn = running_loss / len(loader_trn)
         acc_trn = 100. * correct / total
-        losses_trn.append(loss_trn)
-        accs_trn.append(acc_trn)
         
         model.eval()
-        running_loss = 0.0
+        running_loss = 0.
         correct = 0
         total = 0
         
@@ -121,22 +110,16 @@ def run():
         
         loss_tst = running_loss / len(loader_tst)
         acc_tst = 100. * correct / total
-        losses_tst.append(loss_tst)
-        accs_tst.append(acc_tst)
         
         scheduler.step(loss_tst)
 
         ast.step(epoch, loss_trn, loss_tst, acc_trn, acc_tst)
 
-    ast.save_model(model)
-
-    _plot(losses_trn, losses_tst, accs_trn, accs_tst, ast.path('result.png'))
+    ast.done(model)
 
 
 def _build_data(fpath, batch_size):
     transform_trn = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(
             (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
@@ -156,28 +139,6 @@ def _build_data(fpath, batch_size):
         shuffle=False, num_workers=2)
     
     return loader_trn, loader_tst
-
-
-def _plot(losses_trn, losses_tst, accs_trn, accs_tst, fpath):
-    plt.figure(figsize=(12, 4))
-    plt.subplot(1, 2, 1)
-    plt.plot(losses_trn, label='Train Loss')
-    plt.plot(losses_tst, label='Test Loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.title('Loss Evolution')
-
-    plt.subplot(1, 2, 2)
-    plt.plot(accs_trn, label='Train Accuracy')
-    plt.plot(accs_tst, label='Test Accuracy')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy (%)')
-    plt.legend()
-    plt.title('Accuracy Evolution')
-    plt.tight_layout()
-
-    plt.savefig(fpath)
 
 
 if __name__ == '__main__':

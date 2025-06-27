@@ -10,16 +10,16 @@ def bb_appr(*args, **kwargs):
 def bb_appr_w_svd(bb, d_inp, d_out, w, rank=10, log=print, nepman=None):
     device = w.device
 
-    X_samples = torch.eye(d_inp, device=device)
-    A = bb(X_samples, w).t()
+    E = torch.eye(d_inp, device=device)
+    A = bb(E, w).t()
     
-    U, S, Vt = torch.linalg.svd(A, full_matrices=False)
+    U, S, V = torch.linalg.svd(A, full_matrices=False)
     
     U = U[:, :rank]
     S = torch.diag(S[:rank])
-    Vt = Vt[:rank, :]
+    V = V[:rank, :]
     
-    return U, S, Vt
+    return U, S, V
     
 
 def bb_appr_w_als(bb, d_inp, d_out, w, rank=10, log=print, nepman=None, 

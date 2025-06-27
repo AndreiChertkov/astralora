@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import os
 import torch
 
@@ -27,14 +29,20 @@ class Astralora:
         self.device = torch.device(f'cuda:{self.args.device}')
 
         if with_neptune:
-            self.nepman, self.url = init_neptune(
+            self.nepman, self.nepman_url = init_neptune(
                 self.args.name, 'set_neptune_env.sh', self.args)
             self.log('Use neptune. See: ' + self.url, 'res')
         else:
             self.nepman = None
-            self.url = ''
+            self.nepman_url = ''
 
         save_args_to_markdown(self.args, args_parser, self.path('args.md'))
+
+        self.losses_trn = []
+        self.losses_tst = []
+
+        self.accs_trn = []
+        self.accs_tst = []
 
     def build(self, layer):
         d_inp = layer.in_features
@@ -53,23 +61,77 @@ class Astralora:
         
         raise NotImplementedError
 
+    def done(self, model):
+        torch.save(model.state_dict(), self.path('model.pth'))
+
+        np.savez_compressed(self.path('result.npz'), res={
+            'args': self._args_to_dict(),
+            'losses_trn': self.losses_trn,
+            'losses_tst': self.losses_tst,
+            'accs_trn': self.accs_trn,
+            'accs_tst': self.accs_tst,
+        })
+        # res = np.load(fpath, allow_pickle=True).get('res').item()
+
+        self.plot()
+
     def path(self, fpath):
         return os.path.join(self.args.folder, fpath)
 
-    def save_model(self, model):
-        torch.save(model.state_dict(), self.path('model.pth'))
+    def plot(self):
+        if len(self.losses_trn) == 0 or len(self.accs_trn) == 0:
+            return
+        
+        plt.figure(figsize=(12, 4))
+        plt.subplot(1, 2, 1)
+        plt.plot(self.losses_trn, label='Train Loss')
+        plt.plot(self.losses_tst, label='Test Loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.title('Loss Evolution')
+
+        plt.subplot(1, 2, 2)
+        plt.plot(self.accs_trn, label='Train Accuracy')
+        plt.plot(self.accs_tst, label='Test Accuracy')
+        plt.xlabel('Epochs')
+        plt.ylabel('Accuracy (%)')
+        plt.legend()
+        plt.title('Accuracy Evolution')
+        plt.tight_layout()
+
+        plt.savefig(self.path('plot.png'))
 
     def step(self, epoch, loss_trn, loss_tst, acc_trn=None, acc_tst=None):
+        if loss_trn is not None:
+            self.losses_trn.append(loss_trn)
+        if loss_tst is not None:
+            self.losses_tst.append(loss_tst)
+        if acc_trn is not None:
+            self.accs_trn.append(acc_trn)
+        if acc_tst is not None:
+            self.accs_tst.append(acc_tst)
+
         text = ''
-        
+
         if epoch is not None:
-            text += f'# {epoch+1:-4d} | '
+            text += f'# {epoch+1:-5d} | '
         else:
-            text += f'ITER | '
+            text += f'ITER  | '
         
-        text += f'L > trn: {loss_trn:-8.2e}, tst: {loss_tst:-8.2e} | '
-        
+        if loss_trn is not None and loss_tst is not None:
+            text += f'L > trn: {loss_trn:-8.2e}, tst: {loss_tst:-8.2e} | '
+        elif loss_trn is not None:
+            text += f'L > trn: {loss_trn:-8.2e} | '
+
         if acc_trn is not None and acc_tst is not None:
             text += f'A > trn: {acc_trn:-5.2f}, tst: {acc_tst:-5.2f}'
-        
+        elif acc_trn is not None:
+            text += f'A > trn: {acc_trn:-5.2f}'
+
         self.log(text)
+
+    def _args_to_dict(self):
+        def _check(v):
+            return isinstance(v, (bool, int, float, str))
+        return {n: v for n, v in vars(self.args).items() if _check(v)}

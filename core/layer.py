@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-from .backprop import bb_backprop_wrap
+from .backprop import backprop_wrap
 from .blackbox import bb_appr
 from .blackbox import bb_build
 from .psi import psi_implicit
@@ -25,13 +25,13 @@ class AstraloraLayer(nn.Module):
         self.rank = rank
         self.samples_bb = samples_bb
         self.samples_sm = samples_sm
-        self.log = log
-        self.nepman = nepman
         self.use_sm = use_sm
         self.use_gd_update = use_gd_update
         self.gd_update_iters = gd_update_iters
+        self.log = log
+        self.nepman = nepman
 
-        self.log('... [DEBUG] Init Astralora layer : ' + self.extra_repr())
+        self.log('... Init Astralora layer : \n     ' + self.extra_repr())
 
         self.bb, w = bb_build(self.d_inp, self.d_out, self.d, self.kind)
         self.w = nn.Parameter(w)
@@ -83,13 +83,13 @@ class AstraloraLayer(nn.Module):
             self.register_buffer('U', U)
             self.register_buffer('S', S)
             self.register_buffer('V', V)
-            self._debug_err()  
+            self._debug_err()
         else:
             self.register_buffer('U', None)
             self.register_buffer('S', None)
             self.register_buffer('V', None)
 
-        self.bb_wrapper = bb_backprop_wrap(self.bb, self.generator,
+        self.bb_wrapper = backprop_wrap(self.bb, self.generator,
             self.samples_sm, self.samples_bb, use_sm=self.use_sm)
 
     def _debug_err(self):
@@ -108,7 +108,7 @@ class AstraloraLayer(nn.Module):
             w_new = self.w.data.detach().clone()
 
             delta = torch.norm(w_new - w_old) / torch.norm(w_old)
-            self.log(f'... [DEBUG] Delta w : {delta:-12.5e}')
+            # self.log(f'... [DEBUG] Delta w : {delta:-12.5e}')
             if self.nepman:
                 self.nepman['astralora/w_delta'].append(delta)
 
@@ -128,8 +128,8 @@ class AstraloraLayer(nn.Module):
                 self.U, self.S, self.V = psi_implicit(f_old, f_new,
                     self.U, self.S, self.V, self.samples_sm)
 
-        with torch.no_grad():
-            self._debug_err()
+        #with torch.no_grad():
+        #    self._debug_err()
 
     def _update_factors_gd(self, x, y, lr=1.E-4):
         for _ in range(self.gd_update_iters):

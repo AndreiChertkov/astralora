@@ -1,8 +1,8 @@
 import torch
 
 
-def bb_backprop_wrap(bb_func, generator, samples_x=1, samples_w=1,
-                     use_sm=True):
+def backprop_wrap(bb_func, generator, samples_x=1, samples_w=1,
+                  use_sm=True):
     class FuncCustom(torch.autograd.Function):
         @staticmethod
         def forward(ctx, x, w, U, S, V):

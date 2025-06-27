@@ -27,18 +27,13 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 
 5. Install dependencies:
     ```bash
-    pip install transformers torch>=2.6.0 torchvision tiktoken datasets opt_einsum tqdm numpy==1.26 rotary_embedding_torch peft huggingface-hub neptune
+     pip install -e .
     ```
     > In the case of errors do `conda install gcc_linux-64 -y && conda install gxx_linux-64 -y && conda install -c conda-forge libstdcxx-ng -y`
 
 6. Optionally delete virtual environment at the end of the work:
     ```bash
     conda activate && conda remove --name astralora --all -y
-    ```
-
-7. If there is an import error:
-    ```
-    pip install -e .
     ```
     
 
@@ -47,18 +42,24 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 ### cnn_cifar
 
 - `clear && python script.py --task cnn_cifar --mode digital --name digital`
-    > PEND `cryri --logs c1c139f8`
+    > TODO `cryri --logs ?`
 
 - `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank1_samples100 --rank 1 --samples_bb 100 --samples_sm 100`
-    > PEND `cryri --logs 46f20f36`
+    > TODO `cryri --logs ?`
+
+- `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank5_samples100 --rank 5 --samples_bb 100 --samples_sm 100`
+    > TODO `cryri --logs ?`
 
 - `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100`
-    > PEND `cryri --logs 58085f2b`
+    > TODO `cryri --logs ?`
+
+- `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank50_samples100 --rank 50 --samples_bb 100 --samples_sm 100`
+    > TODO `cryri --logs ?`
 
 - `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank100_samples100 --rank 100 --samples_bb 100 --samples_sm 100`
-    > PEND `cryri --logs `
+    > TODO `cryri --logs ?`
 
-### nanogpt_fineweb
+### nanogpt_fineweb [OUTDATED]
 
 > Do `cd nanogpt_fineweb && python run_data.py` before the first run
 
