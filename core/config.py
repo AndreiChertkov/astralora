@@ -69,6 +69,12 @@ def _config_astralora(task, parser):
         const=True,
         default=False)
 
+    parser.add_argument('--bb_do_baseline',
+        type=lambda x: bool(strtobool(x)),
+        help='Do we perform exact computations of gradients and SVD (fto otain a baseline)',
+        nargs='?',
+        const=True,
+        default=False)
 
 def _config_base(task, parser):
     parser.add_argument('--name',

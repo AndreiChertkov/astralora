@@ -57,7 +57,7 @@ class Astralora:
                 self.args.rank, self.args.samples_bb, self.args.samples_sm,
                 not self.args.use_stochastic_w,
                 self.args.use_gd_update, self.args.gd_update_iters,
-                self.log, self.nepman)
+                self.args.bb_do_baseline, self.log, self.nepman)
         
         raise NotImplementedError
 

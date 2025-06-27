@@ -13,7 +13,7 @@ class AstraloraLayer(nn.Module):
     def __init__(self, d_inp, d_out, d=None, kind='matvec', rank=1,
                  samples_bb=100, samples_sm=100, use_sm=True, 
                  use_gd_update=False, gd_update_iters=1,
-                 log=print, nepman=None):
+                 do_baseline=False, log=print, nepman=None):
         super().__init__()
         
         self.d_inp = d_inp
@@ -28,6 +28,7 @@ class AstraloraLayer(nn.Module):
         self.use_sm = use_sm
         self.use_gd_update = use_gd_update
         self.gd_update_iters = gd_update_iters
+        self.do_baseline = do_baseline
         self.log = log
         self.nepman = nepman
 
@@ -90,7 +91,8 @@ class AstraloraLayer(nn.Module):
             self.register_buffer('V', None)
 
         self.bb_wrapper = backprop_wrap(self.bb, self.generator,
-            self.samples_sm, self.samples_bb, use_sm=self.use_sm)
+            self.samples_sm, self.samples_bb, use_sm=self.use_sm,
+            use_matvec_w=self.do_baseline)
 
     def _debug_err(self):
         # TODO: now it use the exact form of bb. We should remove it later
@@ -102,7 +104,7 @@ class AstraloraLayer(nn.Module):
             if self.nepman:
                 self.nepman['astralora/A_error'].append(err)
 
-    def _update_factors(self, x, y):
+    def _update_factors(self, x, y, thr=1.E-12):
         with torch.no_grad():
             w_old = self.w_old
             w_new = self.w.data.detach().clone()
@@ -112,7 +114,7 @@ class AstraloraLayer(nn.Module):
             if self.nepman:
                 self.nepman['astralora/w_delta'].append(delta)
 
-            if delta < 1.E-12:
+            if delta < thr:
                 return
 
         if self.use_gd_update:
@@ -124,6 +126,15 @@ class AstraloraLayer(nn.Module):
 
                 def f_new(X):
                     return self.bb(X, w_new)
+
+                if self.do_baseline:
+                    E = torch.eye(self.d_inp, device=self.device)
+                    A = f_new(E).t()
+                    U, S, V = torch.linalg.svd(A, full_matrices=False)
+                    self.U = U[:, :self.rank]
+                    self.S = torch.diag(S[:self.rank])
+                    self.V = V[:self.rank, :]
+                    return
 
                 self.U, self.S, self.V = psi_implicit(f_old, f_new,
                     self.U, self.S, self.V, self.samples_sm)
