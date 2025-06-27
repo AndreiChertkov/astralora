@@ -58,7 +58,7 @@ class Model(nn.Module):
 
 
 def run():
-    ast = Astralora(with_neptune=False)
+    ast = Astralora('cnn_cifar', with_neptune=False)
 
     loader_trn, loader_tst = _build_data(
         ast.args.root_data, ast.args.batch_size)

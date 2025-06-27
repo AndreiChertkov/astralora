@@ -9,7 +9,7 @@ setup(
     install_requires=[
         "datasets",
         "huggingface-hub",
-        "matplotlib"
+        "matplotlib",
         "neptune",
         "numpy>=1.26",
         "opt_einsum",

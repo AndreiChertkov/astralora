@@ -13,8 +13,8 @@ from .utils import save_args_to_markdown
 
 
 class Astralora:
-    def __init__(self, with_neptune=True):
-        self.args, args_parser = config('cnn_cifar')
+    def __init__(self, task, with_neptune=True):
+        self.args, args_parser = config(task)
         self.args = modify_gpu_args_for_cryri(self.args)
 
         init_seed(self.args.seed)

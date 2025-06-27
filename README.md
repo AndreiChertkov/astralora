@@ -47,16 +47,16 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 ### cnn_cifar
 
 - `clear && python script.py --task cnn_cifar --mode digital --name digital`
-    > PEND `cryri --logs dbe886db`
+    > PEND `cryri --logs c1c139f8`
 
 - `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank1_samples100 --rank 1 --samples_bb 100 --samples_sm 100`
-    > PEND `cryri --logs 20ec0907`
+    > PEND `cryri --logs 46f20f36`
 
 - `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100`
-    > PEND `cryri --logs e802634b`
+    > PEND `cryri --logs 58085f2b`
 
 - `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank100_samples100 --rank 100 --samples_bb 100 --samples_sm 100`
-    > PEND `cryri --logs 38bee80c`
+    > PEND `cryri --logs `
 
 ### nanogpt_fineweb
 
