@@ -5,7 +5,7 @@ import subprocess
 import time
 
 
-from nanogpt_fineweb.config import config
+from core.config import config
 
 
 ARGS_OWN = {
@@ -66,7 +66,7 @@ def get_text_yaml():
 
 
 def script():
-    args = config('TASK_PLACEHOLDER', ARGS_OWN)
+    args, _ = config('TASK_PLACEHOLDER', ARGS_OWN)
 
     args.root_data = args.root_data.replace('TASK_PLACEHOLDER', args.task)
     args.root = args.root.replace('TASK_PLACEHOLDER', args.task)

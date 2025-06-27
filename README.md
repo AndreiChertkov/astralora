@@ -46,48 +46,21 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 
 ### cnn_cifar
 
-pip install -e . && clear && python cnn_cifar/run.py --rewrite --mode digital --name digital --device 1
+- `clear && python script.py --task cnn_cifar --mode digital --name digital`
+    > PEND `cryri --logs a60d4db4`
 
-pip install -e . && clear && python cnn_cifar/run.py --rewrite --mode bb --name bb_test --device 2
+- `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank1_samples100 --rank 1 --samples_bb 100 --samples_sm 100`
+    > PEND `cryri --logs c7e87805`
 
+- `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100`
+    > PEND `cryri --logs c8515fb9`
+
+- `clear && python script.py --task cnn_cifar --mode bb --name bb_matvec_rank100_samples100 --rank 100 --samples_bb 100 --samples_sm 100`
+    > PEND `cryri --logs ddfe567d`
 
 ### nanogpt_fineweb
 
-1. `cd nanogpt_fineweb`
-
-2. `python run_data.py`
-
-3. `chmod +x ../set_neptune_env.sh && ../set_neptune_env.sh`
-
-4. Run the computation with the command like `torchrun --standalone --nproc_per_node=1 run.py --gpus 3 --mode digital --name digital`
-
-
-clear && torchrun --standalone --nproc_per_node=1 nanogpt_fineweb/run.py --gpus 7 --mode bb --name bb_stoch_samples100_test --use_stochastic_w --samples_bb 100 --samples_sm 100 --rewrite --root_data ./nanogpt_fineweb/_data/fineweb --root ./nanogpt_fineweb/result
-
-
-## Computations
-
-### nanogpt_fineweb (hopper)
-
-1. TODO `clear && torchrun --standalone --nproc_per_node=1 run.py --gpus 3 --mode digital --name digital`
-
-2. `clear && torchrun --standalone --nproc_per_node=1 run.py --gpus 4 --mode bb --name bb_rank10_samples1 --rank 10 --samples_bb 1 --samples_sm 1`
-
-3. `clear && torchrun --standalone --nproc_per_node=1 run.py --gpus 6 --mode bb --name bb_rank10_samples10 --rank 10 --samples_bb 10 --samples_sm 10`
-
-4. `clear && torchrun --standalone --nproc_per_node=1 run.py --gpus 7 --mode bb --name bb_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100`
-
-5.
-
-6. `clear && torchrun --standalone --nproc_per_node=1 run.py --gpus 4 --mode bb --name b_stoch_samples1 --use_stochastic_w --samples_bb 1 --samples_sm 1`
-
-7. `clear && torchrun --standalone --nproc_per_node=1 run.py --gpus 6 --mode bb --name bb_stoch_samples10 --use_stochastic_w --samples_bb 10 --samples_sm 10`
-
-8. `clear && torchrun --standalone --nproc_per_node=1 run.py --gpus 7 --mode bb --name bb_stoch_samples100 --use_stochastic_w --samples_bb 100 --samples_sm 100`
-
-9.
-
-### nanogpt_fineweb (jobs)
+> Do `cd nanogpt_fineweb && python run_data.py` before the first run
 
 - `clear && python script.py --mode digital --name digital`
     > RUNS `cryri --logs 699dd35e`
@@ -127,34 +100,3 @@ clear && torchrun --standalone --nproc_per_node=1 nanogpt_fineweb/run.py --gpus 
 
 - `clear && python script.py --mode digital --name digital_seed3 --seed 3`
     > RUNS `cryri --logs e12349b8`
-
-## new run
-
-- `clear && python script.py --mode digital --name digital --root result_new`
-    > DONE `cryri --logs 58716ad6`
-
-- `clear && python script.py --mode bb --name bb_rank10_gd_update_iters1_lr4 --rank 10 --root result_new --use_gd_update --gd_update_iters 1`
-    > DONE `cryri --logs f4b44ae1`
-
- - `clear && python script.py --mode bb --name bb_rank10_gd_update_iters10_lr4 --rank 10 --root result_new --use_gd_update --gd_update_iters 10`
-    > DONE `cryri --logs cff4be3a`
-
- - `clear && python script.py --mode bb --name bb_rank10_gd_update_iters100_lr4 --rank 10 --root result_new --use_gd_update --gd_update_iters 100`
-    > DONE `cryri --logs 0bf5cd38`
-
- - `clear && python script.py --mode bb --name bb_rank10_gd_update_iters1000_lr4 --rank 10 --root result_new --use_gd_update --gd_update_iters 1000`
-    > DONE `cryri --logs 235629bd`
-
-
-## new run 2
-
-- `clear && python script.py --mode digital --name digital --root result_new2`
-    > RUNS `cryri --logs ef69976d`
-
-- `clear && python script.py --mode bb --name bb_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100 --root result_new2`
-    > PEND `cryri --logs d6a084ef`
-
-- `clear && python script.py --mode bb --name bb_slm_rank10_samples100 --rank 10 --samples_bb 100 --samples_sm 100 --root result_new2 --bb_kind slm`
-    > RUNS `cryri --logs 945f5f5d`
-
-    
