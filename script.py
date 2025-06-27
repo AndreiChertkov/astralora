@@ -12,7 +12,12 @@ ARGS_OWN = {
     'device_num': {
         'type': int,
         'help': 'Number of required GPU devices to use [it is argument only for "script.py", not for "run.py"]',
-        'default': 1}
+        'default': 1},
+    'task': {
+        'type': str,
+        'choices': ['cnn_cifar', 'nanogpt_fineweb'],
+        'help': 'Name of the task (model / data) to solve',
+        'default': 'cnn_cifar'}
 }
 
 
@@ -36,10 +41,9 @@ def get_text_ssh():
         source $(conda info --base)/etc/profile.d/conda.sh
         conda activate astralora
         conda install -c conda-forge conda-ecosystem-user-package-isolation -y
-        pip install transformers torch==2.6.0 tiktoken datasets opt_einsum tqdm numpy==1.26 rotary_embedding_torch peft huggingface-hub neptune
         pip install -e .
         conda install gcc_linux-64 -y && conda install gxx_linux-64 -y
-        torchrun --standalone --nproc_per_node=1 nanogpt_fineweb/run.py ARGS_PLACEHOLDER
+        torchrun --standalone --nproc_per_node=1 TASK_PLACEHOLDER/run.py ARGS_PLACEHOLDER
         echo ">>> WORK IS DONE <<<"
     """
 
@@ -62,11 +66,10 @@ def get_text_yaml():
 
 
 def script():
-    args = config(ARGS_OWN)
+    args = config('TASK_PLACEHOLDER', ARGS_OWN)
 
-    # TODO: note this:
-    args.root_data = './nanogpt_fineweb/_data/fineweb'
-    args.root = './nanogpt_fineweb/' + args.root
+    args.root_data = args.root_data.replace('TASK_PLACEHOLDER', args.task)
+    args.root = args.root.replace('TASK_PLACEHOLDER', args.task)
 
     args_str = args_to_str(args)
 
@@ -74,6 +77,7 @@ def script():
     name_ssh = ''.join(random.choices(string.ascii_uppercase, k=25))
     fpath_ssh = f'_tmp/{name_ssh}.sh'
     text_ssh = get_text_ssh().replace('    ', '')
+    text_ssh = text_ssh.replace('TASK_PLACEHOLDER', args.task)
     text_ssh = text_ssh.replace('ARGS_PLACEHOLDER', args_str)
 
     with open(fpath_ssh, 'w') as f:

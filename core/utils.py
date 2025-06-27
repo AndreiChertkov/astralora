@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import datetime
 from io import StringIO
 import neptune
@@ -107,7 +108,7 @@ def modify_gpu_args_for_cryri(args):
     if num_requested > num_available:
         raise ValueError(f'Requested {num_requested} GPUs but only {num_available} are available')
     elif num_requested != num_available:
-        print('Executing on Hopper, no GPU number swapping')
+        pass # print('Executing on Hopper, no GPU number swapping')
     else:
         print('Executing with jobs, GPU number swapping')
     
@@ -115,3 +116,39 @@ def modify_gpu_args_for_cryri(args):
         args.gpus = ','.join(map(str, available_gpus))
     
     return args
+
+
+def save_args_to_markdown(args, parser, filename):
+    group_actions = defaultdict(list)
+    group_titles = {}
+
+    for group in parser._action_groups:
+        if not group._group_actions or group.title == 'options':
+            continue
+            
+        title = group.title
+        group_titles[title] = title
+        
+        for action in group._group_actions:
+            group_actions[title].append(action)
+
+    content = [f'# Arguments\n\n\n']
+    
+    for group_title in group_actions:
+        content.append(f'## {group_title}:\n\n')
+        
+        for action in group_actions[group_title]:
+            name = ', '.join(action.option_strings) if action.option_strings else action.dest
+            
+            value = getattr(args, action.dest, None)
+            if value is None:
+                value = '⛔ not set'
+            elif action.const and isinstance(value, bool):
+                value = '✅' if value else '❌'
+                
+            content.append(f'- **{name}**: `{value}`\n')
+        
+        content.append('\n\n')
+
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.writelines(content)

@@ -27,7 +27,7 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 
 5. Install dependencies:
     ```bash
-    pip install transformers torch==2.6.0 tiktoken datasets opt_einsum tqdm numpy==1.26 rotary_embedding_torch peft huggingface-hub neptune
+    pip install transformers torch>=2.6.0 torchvision tiktoken datasets opt_einsum tqdm numpy==1.26 rotary_embedding_torch peft huggingface-hub neptune
     ```
     > In the case of errors do `conda install gcc_linux-64 -y && conda install gxx_linux-64 -y && conda install -c conda-forge libstdcxx-ng -y`
 
@@ -43,6 +43,13 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
     
 
 ## Usage
+
+### cnn_cifar
+
+pip install -e . && clear && python cnn_cifar/run.py --rewrite --mode digital --name digital --device 1
+
+pip install -e . && clear && python cnn_cifar/run.py --rewrite --mode bb --name bb_test --device 2
+
 
 ### nanogpt_fineweb
 

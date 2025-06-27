@@ -3,10 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-from .helpers.astralora_backprop import bb_backprop_wrap
-from .helpers.astralora_bb import bb_appr
-from .helpers.astralora_bb import bb_build
-from .helpers.astralora_psi import psi_implicit
+from .backprop import bb_backprop_wrap
+from .blackbox import bb_appr
+from .blackbox import bb_build
+from .psi import psi_implicit
 
 
 class AstraloraLayer(nn.Module):

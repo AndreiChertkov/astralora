@@ -12,20 +12,26 @@ import torch._dynamo
 torch._dynamo.config.suppress_errors = True
 
 
-from config import config
+from layers.astralora_layer import AstraloraLayer
+
+
+from config.config import config
+from utils.utils import init_log
+from utils.utils import init_neptune
+from utils.utils import init_path
+from utils.utils import init_seed
+from utils.utils import modify_gpu_args_for_cryri
+from utils.utils import save_args_to_markdown
+
+
 from data import DistributedDataLoader
 from model import Model
 from optimizer_muon import OptimizerMuon
-from utils import init_log
-from utils import init_neptune
-from utils import init_path
-from utils import init_seed
-from utils import modify_gpu_args_for_cryri
 
 
 @record
 @torch.compiler.disable
-def run(args):
+def run(args, args_parser):
     # --- Set the global seed value
     init_seed(args.seed)
 
@@ -45,9 +51,14 @@ def run(args):
     # --- Init folders and log:
     if master_process:
         init_path(args.name, args.root, args.rewrite)
+
     args.folder = os.path.join(args.root, args.name)
     fpath = os.path.join(args.folder, 'log.txt')
     log = init_log(fpath=fpath, enable=master_process)
+
+    if master_process:
+        fpath = os.path.join(args.folder, 'args.md')
+        save_args_to_markdown(args, args_parser, fpath)
 
     # --- Initialize Neptune:
     if master_process:
@@ -256,7 +267,7 @@ def run(args):
 
 
 if __name__ == '__main__':
-    args = config()
+    args, args_parser = config('nanogpt_fineweb')
     args = modify_gpu_args_for_cryri(args)
 
-    run(args)
+    run(args, args_parser)

@@ -8,6 +8,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "torch>=2.6.0",
+        "torchvision",
         "transformers",
         "tiktoken",
         "datasets",
