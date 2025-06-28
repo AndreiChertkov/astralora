@@ -21,6 +21,7 @@ def backprop_wrap(bb_func, generator, samples_x=1, samples_w=1,
 
             if use_matvec_w:
                 grad_w = grad_output.t() @ x
+                grad_w = grad_w.reshape(-1)
             else:
                 grad_w = _backprop_stochastic(bb_func, x, w, grad_output, 
                     generator, samples_w, for_x=False)
