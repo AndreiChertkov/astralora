@@ -3,9 +3,9 @@ import subprocess
 
 
 def autorun(task):
-    seeds = [1]#, 2, 3, 4, 5]
-    ranks = [1]#, 3, 5, 7, 10, 50, 100]
-    samples = [1, 10]#, 100, 1000]
+    seeds = [1, 2, 3, 4, 5]
+    ranks = [1, 3, 5, 7, 10, 50, 100]
+    samples = [1, 10, 100, 1000]
 
     for seed in seeds:
         _run(task, [
