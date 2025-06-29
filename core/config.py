@@ -76,6 +76,7 @@ def _config_astralora(task, parser):
         const=True,
         default=False)
 
+
 def _config_base(task, parser):
     parser.add_argument('--name',
         type=str,
@@ -149,17 +150,17 @@ def _config_cnn_cifar(task, parser):
     parser.add_argument('--batch_size',
         type=int,
         help='Batch size',
-        default=1024)
+        default=512)
 
     parser.add_argument('--epochs',
         type=int,
         help='Number of training epochs',
-        default=25)
+        default=50)
 
     parser.add_argument('--lr',
         type=float,
         help='Learning rate',
-        default=0.005)
+        default=0.001)
 
 
 def _config_nanogpt_fineweb(task, parser):

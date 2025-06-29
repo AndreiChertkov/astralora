@@ -1,34 +1,47 @@
 import subprocess
 
-def autorun_cnn_cifar():
-    ranks = [1, 3, 5, 7, 10, 50, 100]
-    samples_list = [1, 10, 50, 100, 500]
 
-    for rank in ranks:
-        for samples_val in samples_list:
-            exp_name = f"bb_matvec_rank{rank}_samples{samples_val}"
-            
-            command = [
+def autorun_cnn_cifar():
+    seeds = [1, 2, 3, 4, 5]
+    ranks = [1, 3, 5, 7, 10, 50, 100]
+    samples = [1, 10, 100, 1000]
+
+    for seed in seeds:
+        _run([
+            "python", "script.py",
+            "--task", "cnn_cifar",
+            "--mode", "digital",
+            "--name", f"digital_seed{seed}",
+            "--save_model", "False",
+            '--seed', str(seed)])
+
+        for r in ranks:
+            _run([
                 "python", "script.py",
                 "--task", "cnn_cifar",
                 "--mode", "bb",
-                "--name", exp_name,
-                "--rank", str(rank),
-                "--samples_bb", str(samples_val),
-                "--samples_sm", str(samples_val)
-            ]
-            
-            print(f"\nЗапуск: rank={rank}, samples={samples_val}")
-            print("Команда:", " ".join(command))
-            
-            try:
-                result = subprocess.run(command, check=True)
-                print(f"Успешно запущено: {exp_name}", result)
-            except subprocess.CalledProcessError as e:
-                print(f"Ошибка при выполнении: {exp_name}")
-                print(f"Код ошибки: {e.returncode}")
+                "--name", f"bb_matvec_rank{r}_baseline_seed{seed}",
+                "--rank", str(r),
+                "--bb_do_baseline",
+                "--save_model", "False",
+                '--seed', str(seed)])
 
-    print("\nВсе эксперименты завершены!")
+            for s in samples:
+                _run([
+                    "python", "script.py",
+                    "--task", "cnn_cifar",
+                    "--mode", "bb",
+                    "--name", f"bb_matvec_rank{r}_samples{s}_seed{seed}",
+                    "--rank", str(r),
+                    "--samples_bb", str(s),
+                    "--samples_sm", str(s),
+                    "--save_model", "False",
+                    '--seed', str(seed)])
+
+
+def _run(command):
+    result = subprocess.run(command, check=True)
+    print("DONE:", " ".join(command))
 
 
 if __name__ == '__main__':
