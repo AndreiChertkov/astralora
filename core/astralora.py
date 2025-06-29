@@ -125,9 +125,9 @@ class Astralora:
             text += f'L > trn: {loss_trn:-8.2e} | '
 
         if acc_trn is not None and acc_tst is not None:
-            text += f'A > trn: {acc_trn:-5.2f}, tst: {acc_tst:-5.2f}'
+            text += f'A > trn: {acc_trn:-6.4f}, tst: {acc_tst:-6.4f}'
         elif acc_trn is not None:
-            text += f'A > trn: {acc_trn:-5.2f}'
+            text += f'A > trn: {acc_trn:-6.4f}'
 
         self.log(text)
 

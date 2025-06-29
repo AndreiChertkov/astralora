@@ -11,6 +11,7 @@ _tmp/
 build/
 dist/
 result*
+results*
 _data*
 
 # Environment and secrets

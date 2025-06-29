@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 
@@ -39,9 +40,18 @@ def autorun_cnn_cifar():
                     '--seed', str(seed)])
 
 
+def _check(name):
+    fpath = f'cnn_cifar/result/{name}/result.npz'
+    if not os.path.isfile(fpath):
+        return True
+
+    return False
+
+
 def _run(command):
-    result = subprocess.run(command, check=True)
-    print("DONE:", " ".join(command))
+    if _check(command[7]):
+        result = subprocess.run(command, check=True)
+        print("DONE:", " ".join(command))
 
 
 if __name__ == '__main__':

@@ -18,6 +18,10 @@ def config(task, args_add={}):
     _config_astralora(task,
         parser.add_argument_group("Parameters for custom layer training"))
 
+    if task == 'airbench_cifar':
+        _config_airbench_cifar(task,
+            parser.add_argument_group("Parameters for airbench / cifar"))
+
     if task == 'cnn_cifar':
         _config_cnn_cifar(task,
             parser.add_argument_group("Parameters for cnn / cifar"))
@@ -75,6 +79,10 @@ def _config_astralora(task, parser):
         nargs='?',
         const=True,
         default=False)
+
+
+def _config_airbench_cifar(task, parser):
+    return
 
 
 def _config_base(task, parser):
