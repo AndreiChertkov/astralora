@@ -1,3 +1,3 @@
 """
-AstraLora - Adaptive Surrogate TRAining with LOw RAnk
+Astralora - Adaptive Surrogate TRAining with LOw RAnk
 """ 

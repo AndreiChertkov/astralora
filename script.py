@@ -15,7 +15,7 @@ ARGS_OWN = {
         'default': 1},
     'task': {
         'type': str,
-        'choices': ['airbench_cifar', 'cnn_cifar', 'nanogpt_fineweb'],
+        'choices': ['airbench_cifar', 'cnn_cifar', 'ecapa_urbansound8k', 'nanogpt_fineweb'],
         'help': 'Name of the task (model / data) to solve',
         'default': 'cnn_cifar'}
 }

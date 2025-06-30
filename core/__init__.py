@@ -1,3 +1,3 @@
 """
-Core logic for AstraLora
+Core logic for Astralora
 """ 

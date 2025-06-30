@@ -62,6 +62,35 @@ class Astralora:
         raise NotImplementedError
 
     def done(self, model):
+        self.save(model)
+        self.plot()
+
+    def path(self, fpath):
+        return os.path.join(self.args.folder, fpath)
+
+    def plot(self):
+        if len(self.losses_trn) > 0 and len(self.losses_tst) > 0:        
+            plt.figure(figsize=(6, 4))
+            plt.plot(self.losses_trn, label='Train Loss')
+            plt.plot(self.losses_tst, label='Test Loss')
+            plt.xlabel('Epochs')
+            plt.ylabel('Loss')
+            plt.legend()
+            plt.title('Loss Evolution')
+            plt.tight_layout()
+            plt.savefig(self.path('_plot_loss.png'))
+
+        if len(self.accs_trn) == 0 or len(self.accs_tst) == 0:
+            plt.plot(self.accs_trn, label='Train Accuracy')
+            plt.plot(self.accs_tst, label='Test Accuracy')
+            plt.xlabel('Epochs')
+            plt.ylabel('Accuracy (%)')
+            plt.legend()
+            plt.title('Accuracy Evolution')
+            plt.tight_layout()
+            plt.savefig(self.path('_plot_acc.png'))
+
+    def save(self, model):
         torch.save(model.state_dict(), self.path('model.pth'))
 
         np.savez_compressed(self.path('result.npz'), res={
@@ -69,38 +98,7 @@ class Astralora:
             'losses_trn': self.losses_trn,
             'losses_tst': self.losses_tst,
             'accs_trn': self.accs_trn,
-            'accs_tst': self.accs_tst,
-        })
-        # res = np.load(fpath, allow_pickle=True).get('res').item()
-
-        self.plot()
-
-    def path(self, fpath):
-        return os.path.join(self.args.folder, fpath)
-
-    def plot(self):
-        if len(self.losses_trn) == 0 or len(self.accs_trn) == 0:
-            return
-        
-        plt.figure(figsize=(12, 4))
-        plt.subplot(1, 2, 1)
-        plt.plot(self.losses_trn, label='Train Loss')
-        plt.plot(self.losses_tst, label='Test Loss')
-        plt.xlabel('Epochs')
-        plt.ylabel('Loss')
-        plt.legend()
-        plt.title('Loss Evolution')
-
-        plt.subplot(1, 2, 2)
-        plt.plot(self.accs_trn, label='Train Accuracy')
-        plt.plot(self.accs_tst, label='Test Accuracy')
-        plt.xlabel('Epochs')
-        plt.ylabel('Accuracy (%)')
-        plt.legend()
-        plt.title('Accuracy Evolution')
-        plt.tight_layout()
-
-        plt.savefig(self.path('plot.png'))
+            'accs_tst': self.accs_tst})
 
     def step(self, epoch, loss_trn, loss_tst, acc_trn=None, acc_tst=None):
         if loss_trn is not None:
@@ -123,11 +121,15 @@ class Astralora:
             text += f'L > trn: {loss_trn:-8.2e}, tst: {loss_tst:-8.2e} | '
         elif loss_trn is not None:
             text += f'L > trn: {loss_trn:-8.2e} | '
+        elif loss_tst is not None:
+            text += f'L > tst: {loss_tst:-8.2e} | '
 
         if acc_trn is not None and acc_tst is not None:
             text += f'A > trn: {acc_trn:-6.4f}, tst: {acc_tst:-6.4f}'
         elif acc_trn is not None:
             text += f'A > trn: {acc_trn:-6.4f}'
+        elif acc_tst is not None:
+            text += f'A > tst: {acc_tst:-6.4f}'
 
         self.log(text)
 

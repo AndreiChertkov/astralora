@@ -16,19 +16,23 @@ def config(task, args_add={}):
         parser.add_argument_group("Parameters for general options"))
 
     _config_astralora(task,
-        parser.add_argument_group("Parameters for custom layer training"))
+        parser.add_argument_group("Parameters for task custom layer training"))
 
     if task == 'airbench_cifar':
         _config_airbench_cifar(task,
-            parser.add_argument_group("Parameters for airbench / cifar"))
+            parser.add_argument_group("Parameters for task airbench/cifar"))
 
     if task == 'cnn_cifar':
         _config_cnn_cifar(task,
-            parser.add_argument_group("Parameters for cnn / cifar"))
+            parser.add_argument_group("Parameters for task cnn/cifar"))
+
+    if task == 'ecapa_urbansound8k':
+        _config_ecapa_urbansound8k(task,
+            parser.add_argument_group("Parameters for task ecapa/urbansound8k"))
 
     if task == 'nanogpt_fineweb':
         _config_nanogpt_fineweb(task,
-            parser.add_argument_group("Parameters for nanogpt / fineweb"))
+            parser.add_argument_group("Parameters for task nanogpt/fineweb"))
 
     if 'JPY_PARENT_PID' in os.environ:
         # Jupyter can not use the console arguments, hence empty list:
@@ -37,6 +41,10 @@ def config(task, args_add={}):
         args = parser.parse_args()
 
     return args, parser
+
+
+def _config_airbench_cifar(task, parser):
+    return
 
 
 def _config_astralora(task, parser):
@@ -75,14 +83,10 @@ def _config_astralora(task, parser):
 
     parser.add_argument('--bb_do_baseline',
         type=lambda x: bool(strtobool(x)),
-        help='Do we perform exact computations of gradients and SVD (fto otain a baseline)',
+        help='Do we perform exact computations of gradients and SVD (to obtain a baseline)',
         nargs='?',
         const=True,
         default=False)
-
-
-def _config_airbench_cifar(task, parser):
-    return
 
 
 def _config_base(task, parser):
@@ -169,6 +173,10 @@ def _config_cnn_cifar(task, parser):
         type=float,
         help='Learning rate',
         default=0.001)
+
+
+def _config_ecapa_urbansound8k(task, parser):
+    return
 
 
 def _config_nanogpt_fineweb(task, parser):
