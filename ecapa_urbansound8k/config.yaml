@@ -29,7 +29,7 @@ RIR_DATASET_URL: https://www.dropbox.com/scl/fi/linhy77c36mu10965a836/RIRs.zip?r
 
 
 # torch.Tensorboard logs
-use_tensorboard: True
+use_tensorboard: False
 tensorboard_logs_folder: !ref <output_folder>/tb_logs/
 
 # Path where data manifest files will be stored
