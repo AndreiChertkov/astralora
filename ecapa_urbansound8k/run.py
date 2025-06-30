@@ -329,6 +329,7 @@ def dataio_prep(hparams):
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
     # mapping.
+    fpath = 
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,
@@ -359,14 +360,18 @@ class PureLinearBlock(nn.Module):
         return x
 
 
-def run():
-    ast = Astralora('ecapa_urbansound8k', with_neptune=False)
+def run(task='ecapa_urbansound8k'):
+    ast = Astralora(task, with_neptune=False)
+    folder = ast.args.folder + '/speechbrain_output'
 
-    with open('config.yaml', encoding="utf-8") as fin:
+    fpath = task + '/config.yaml'
+    with open(fpath, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, None)
+    hparams['output_folder'] = folder + '/urban_sound'
+
     sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save='config.yaml',
+        experiment_directory=folder,
+        hyperparams_to_save=fpath,
         overrides=None)
 
     run_on_main(prepare_urban_sound_8k, kwargs={
@@ -382,7 +387,7 @@ def run():
     sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
     sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
 
-    datasets, label_encoder = dataio_prep(hparams)
+    datasets, label_encoder = dataio_prep(hparams, folder)
     hparams["label_encoder"] = label_encoder
 
     class_labels = list(label_encoder.ind2lab.values())

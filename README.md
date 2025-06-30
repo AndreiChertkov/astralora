@@ -47,6 +47,18 @@ Use `autorun.py` script
 
 Use `autorun.py` script
 
+## ecapa_urbansound8k
+
+clear && python script.py --mode digital --name digital --task ecapa_urbansound8k --rewrite
+
+--------------------------------------------------
+Job is started. UID is  : 30a38642
+See logs as             : cryri --logs 30a38642
+Kill job as             : cryri --kill 30a38642
+See all jobs as         : cryri --jobs_c
+--------------------------------------------------
+
+
 ### nanogpt_fineweb [OUTDATED]
 
 > Do `cd nanogpt_fineweb && python run_data.py` before the first run

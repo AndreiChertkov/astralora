@@ -114,7 +114,7 @@ best_acc1 = 0
 
 def main():
     
-    ast = Astralora('vgg19_tiny-imagenet', with_neptune=False)
+    ast = Astralora('vgg19_tiny', with_neptune=False)
     args = ast.args
 
     # Download Tiny ImageNet dataset if needed
@@ -183,14 +183,15 @@ def main_worker(gpu, ngpus_per_node, args, ast):
         device = torch.device("cpu")
 
     if args.distributed:
-        if args.dist_url == "env://" and args.rank == -1:
-            args.rank = int(os.environ["RANK"])
+        if args.dist_url == "env://" and args.node_rank == -1:
+            args.node_rank = int(os.environ["RANK"])
         if args.multiprocessing_distributed:
             # For multiprocessing distributed training, rank needs to be the
             # global rank among all the processes
-            args.rank = args.rank * ngpus_per_node + gpu
+            args.node_rank = args.node_rank * ngpus_per_node + gpu
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                world_size=args.world_size, rank=args.rank)
+                                world_size=args.world_size, rank=args.node_rank)
+
     # create model
     if args.pretrained:
         print("=> using pre-trained model '{}'".format(args.arch))
@@ -367,7 +368,7 @@ def main_worker(gpu, ngpus_per_node, args, ast):
         best_acc1 = max(val_acc1, best_acc1)
 
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                and args.rank % ngpus_per_node == 0):
+                and args.node_rank % ngpus_per_node == 0):
             save_checkpoint({
                 'epoch': epoch + 1,
                 'arch': args.arch,
@@ -398,7 +399,7 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
     
     # Create tqdm progress bar
     pbar = tqdm(train_loader, desc=f'Epoch {epoch+1}', 
-                unit='batch', disable=args.distributed and args.rank != 0)
+                unit='batch', disable=args.distributed and args.node_rank != 0)
     
     for i, (images, target) in enumerate(pbar):
         # measure data loading time
@@ -455,7 +456,7 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
     pbar.close()
     
     # Print final epoch summary
-    if not args.distributed or args.rank == 0:
+    if not args.distributed or args.node_rank == 0:
         print(f'Epoch {epoch+1} Summary: Loss: {losses.avg:.4f}, Acc@1: {top1.avg:.2f}%, Acc@5: {top5.avg:.2f}%')
 
     return losses.avg, top1.avg, top5.avg
@@ -477,7 +478,7 @@ def validate(val_loader, model, criterion, args):
             
             # Create tqdm progress bar for validation
             pbar = tqdm(loader, desc='Validation', unit='batch', 
-                       disable=args.distributed and args.rank != 0)
+                       disable=args.distributed and args.node_rank != 0)
             
             for i, (images, target) in enumerate(pbar):
                 i = base_progress + i
@@ -536,7 +537,7 @@ def validate(val_loader, model, criterion, args):
         run_validate(aux_val_loader, len(val_loader))
 
     # Print validation summary
-    if not args.distributed or args.rank == 0:
+    if not args.distributed or args.node_rank == 0:
         print(f'Validation Summary: Loss: {losses.avg:.4f}, Acc@1: {top1.avg:.2f}%, Acc@5: {top5.avg:.2f}%')
 
     return losses.avg, top1.avg, top5.avg

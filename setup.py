@@ -20,5 +20,8 @@ setup(
         "torchvision",
         "tqdm",
         "transformers",
+        "tensorboard",
+        "scikit-learn",
+        "speechbrain"
     ],
 ) 
