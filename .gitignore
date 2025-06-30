@@ -20,3 +20,7 @@ set_neptune_env.sh
 .env
 .neptune
 *.png
+
+tiny-imagenet/
+*.zip
+*.tar
