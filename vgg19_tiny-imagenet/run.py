@@ -24,6 +24,7 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Subset
+from core.astralora import Astralora
 
 
 def download_tiny_imagenet(data_dir='tiny-imagenet'):
@@ -106,70 +107,15 @@ def download_tiny_imagenet(data_dir='tiny-imagenet'):
     return data_dir
 
 
-model_names = sorted(name for name in models.__dict__
-    if name.islower() and not name.startswith("__")
-    and callable(models.__dict__[name]))
 
-parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('data', metavar='DIR', nargs='?', default='tiny-imagenet',
-                    help='path to dataset (default: tiny-imagenet)')
-parser.add_argument('-a', '--arch', metavar='ARCH', default='vgg19',
-                    choices=model_names,
-                    help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: vgg19)')
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
-                    help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=90, type=int, metavar='N',
-                    help='number of total epochs to run')
-parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
-                    help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=128, type=int,
-                    metavar='N',
-                    help='mini-batch size (default: 128), this is the total '
-                         'batch size of all GPUs on the current node when '
-                         'using Data Parallel or Distributed Data Parallel')
-parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
-                    metavar='LR', help='initial learning rate', dest='lr')
-parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
-                    help='momentum')
-parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
-                    metavar='W', help='weight decay (default: 1e-4)',
-                    dest='weight_decay')
-parser.add_argument('-p', '--print-freq', default=10, type=int,
-                    metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--resume', default='', type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
-parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
-                    help='evaluate model on validation set')
-parser.add_argument('--pretrained', dest='pretrained', action='store_true',
-                    help='use pre-trained model')
-parser.add_argument('--world-size', default=-1, type=int,
-                    help='number of nodes for distributed training')
-parser.add_argument('--rank', default=-1, type=int,
-                    help='node rank for distributed training')
-parser.add_argument('--dist-url', default='tcp://224.66.41.62:23456', type=str,
-                    help='url used to set up distributed training')
-parser.add_argument('--dist-backend', default='nccl', type=str,
-                    help='distributed backend')
-parser.add_argument('--seed', default=None, type=int,
-                    help='seed for initializing training. ')
-parser.add_argument('--gpu', default=None, type=int,
-                    help='GPU id to use.')
-parser.add_argument('--no-accel', action='store_true',
-                    help='disables accelerator')
-parser.add_argument('--multiprocessing-distributed', action='store_true',
-                    help='Use multi-processing distributed training to launch '
-                         'N processes per node, which has N GPUs. This is the '
-                         'fastest way to use PyTorch for either single node or '
-                         'multi node data parallel training')
-parser.add_argument('--dummy', action='store_true', help="use fake data to benchmark")
 
 best_acc1 = 0
 
 
 def main():
-    args = parser.parse_args()
+    
+    ast = Astralora('vgg19_tiny-imagenet', with_neptune=False)
+    args = ast.args
 
     # Download Tiny ImageNet dataset if needed
     if not args.dummy:
@@ -217,13 +163,13 @@ def main():
         args.world_size = ngpus_per_node * args.world_size
         # Use torch.multiprocessing.spawn to launch distributed processes: the
         # main_worker process function
-        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
+        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args, ast))
     else:
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
 
 
-def main_worker(gpu, ngpus_per_node, args):
+def main_worker(gpu, ngpus_per_node, args, ast):
     global best_acc1
     args.gpu = gpu
 
@@ -252,6 +198,27 @@ def main_worker(gpu, ngpus_per_node, args):
     else:
         print("=> creating model '{}'".format(args.arch))
         model = models.__dict__[args.arch]()
+
+    # Replace linear layers in the classifier
+    if hasattr(model, 'classifier'):
+        for i, layer in enumerate(model.classifier):
+            if isinstance(layer, nn.Linear):
+                print(f"  Replacing classifier[{i}] (in: {layer.in_features}, out: {layer.out_features})")
+                model.classifier[i] = ast.build(layer)
+    else:
+        # For some models, the classifier might be named differently
+        for name, module in model.named_modules():
+            if isinstance(module, nn.Linear):
+                print(f"  Replacing {name} (in: {module.in_features}, out: {module.out_features})")
+                # This is a bit tricky, we need to replace the parent's child
+                parent_name = '.'.join(name.split('.')[:-1])
+                child_name = name.split('.')[-1]
+                if parent_name:
+                    parent = dict(model.named_modules())[parent_name]
+                    setattr(parent, child_name, ast.build(module))
+                else:
+                    # Root level linear layer
+                    setattr(model, child_name, ast.build(module))
 
     if not use_accel:
         print('using CPU, this will be slow')
@@ -380,21 +347,24 @@ def main_worker(gpu, ngpus_per_node, args):
         validate(val_loader, model, criterion, args)
         return
 
+
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, device, args)
+        train_loss, train_acc1, train_acc5 = train(train_loader, model, criterion, optimizer, epoch, device, args)
 
         # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, args)
+        val_loss, val_acc1, val_acc5 = validate(val_loader, model, criterion, args)
         
         scheduler.step()
         
+        ast.step(epoch, train_loss, val_loss, train_acc1, val_acc1)
+        
         # remember best acc@1 and save checkpoint
-        is_best = acc1 > best_acc1
-        best_acc1 = max(acc1, best_acc1)
+        is_best = val_acc1 > best_acc1
+        best_acc1 = max(val_acc1, best_acc1)
 
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                 and args.rank % ngpus_per_node == 0):
@@ -406,6 +376,9 @@ def main_worker(gpu, ngpus_per_node, args):
                 'optimizer' : optimizer.state_dict(),
                 'scheduler' : scheduler.state_dict()
             }, is_best)
+
+    
+    ast.done(model)
 
 
 def train(train_loader, model, criterion, optimizer, epoch, device, args):
@@ -484,6 +457,8 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
     # Print final epoch summary
     if not args.distributed or args.rank == 0:
         print(f'Epoch {epoch+1} Summary: Loss: {losses.avg:.4f}, Acc@1: {top1.avg:.2f}%, Acc@5: {top5.avg:.2f}%')
+
+    return losses.avg, top1.avg, top5.avg
 
 
 def validate(val_loader, model, criterion, args):
@@ -564,7 +539,7 @@ def validate(val_loader, model, criterion, args):
     if not args.distributed or args.rank == 0:
         print(f'Validation Summary: Loss: {losses.avg:.4f}, Acc@1: {top1.avg:.2f}%, Acc@5: {top5.avg:.2f}%')
 
-    return top1.avg
+    return losses.avg, top1.avg, top5.avg
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
