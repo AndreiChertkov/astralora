@@ -24,3 +24,5 @@ set_neptune_env.sh
 tiny-imagenet/
 *.zip
 *.tar
+
+cache/

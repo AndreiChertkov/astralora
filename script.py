@@ -57,7 +57,7 @@ def get_text_ssh():
         source $(conda info --base)/etc/profile.d/conda.sh
         conda activate astralora
         conda install -c conda-forge conda-ecosystem-user-package-isolation -y
-        pip install -e .
+        pip install -e . --cache-dir cache
         conda install gcc_linux-64 -y && conda install gxx_linux-64 -y
         echo -e "\\n\\n\\n\\n\\n>>>>>>>>> WORK_START <<<<<<<<<\\n\\n\\n\\n\\n"
         SCRIPT_COMMAND_PLACEHOLDER
@@ -86,7 +86,7 @@ def script():
     task = sys.argv[sys.argv.index("--task")+1]
     
     args, _ = config(task, ARGS_OWN)
-    args_str = args_to_str(sys.argv)
+    args_str = args_to_str(sys.argv[1:])
 
     if args.device_num == 1:
         runner = 'python'
