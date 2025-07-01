@@ -4,7 +4,7 @@ import subprocess
 
 def autorun(task):
     seeds = [1, 2, 3, 4, 5]
-    ranks = [1, 3, 5, 7, 10, 50, 100]
+    ranks = [10] #  [1, 3, 5, 7, 10, 50, 100]
     samples = [1, 10, 100, 1000]
 
     for seed in seeds:
@@ -34,7 +34,7 @@ def autorun(task):
                     "--mode", "bb",
                     "--name", f"bb_matvec_rank{r}_samples{s}_seed{seed}",
                     "--rank", str(r),
-                    "--samples_bb", str(s),
+                    "--samples_bb", str(1000), # str(s),
                     "--samples_sm", str(s),
                     "--save_model", "False",
                     '--seed', str(seed)])

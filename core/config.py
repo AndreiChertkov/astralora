@@ -34,9 +34,7 @@ def config(task, args_add={}):
         _config_nanogpt_fineweb(task,
             parser.add_argument_group("Parameters for task nanogpt/fineweb"))
 
-    print(task)
     if task == 'vgg19_tiny':
-        print('vgg19_tiny')
         _config_vgg19_tiny_imagenet(task,
             parser.add_argument_group("Parameters for task vgg19/tiny-imagenet"))
 
@@ -264,17 +262,11 @@ def _config_nanogpt_fineweb(task, parser):
         default=0.01)
 
 def _config_vgg19_tiny_imagenet(task, parser):
-    import torchvision.models as models
-
-    model_names = sorted(name for name in models.__dict__ if name.islower() and not name.startswith("__") and callable(models.__dict__[name]))
     
-    parser.add_argument('data', metavar='DIR', nargs='?', default='tiny-imagenet',
+    parser.add_argument('data', metavar='DIR', nargs='?', default='vgg19_tiny/tiny-imagenet',
                     help='path to dataset (default: tiny-imagenet)')
     parser.add_argument('-a', '--arch', metavar='ARCH', default='vgg19',
-                        choices=model_names,
-                        help='model architecture: ' +
-                            ' | '.join(model_names) +
-                            ' (default: vgg19)')
+                        choices=['vgg19'], help='vgg19')
     parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                         help='number of data loading workers (default: 8)')
     parser.add_argument('--epochs', default=1000, type=int, metavar='N',

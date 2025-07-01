@@ -166,7 +166,7 @@ def main():
         mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args, ast))
     else:
         # Simply call main_worker function
-        main_worker(args.gpu, ngpus_per_node, args)
+        main_worker(args.gpu, ngpus_per_node, args, ast)
 
 
 def main_worker(gpu, ngpus_per_node, args, ast):
@@ -206,6 +206,7 @@ def main_worker(gpu, ngpus_per_node, args, ast):
             if isinstance(layer, nn.Linear):
                 print(f"  Replacing classifier[{i}] (in: {layer.in_features}, out: {layer.out_features})")
                 model.classifier[i] = ast.build(layer)
+                break
     else:
         # For some models, the classifier might be named differently
         for name, module in model.named_modules():
@@ -220,6 +221,7 @@ def main_worker(gpu, ngpus_per_node, args, ast):
                 else:
                     # Root level linear layer
                     setattr(model, child_name, ast.build(module))
+                break
 
     if not use_accel:
         print('using CPU, this will be slow')
@@ -376,7 +378,7 @@ def main_worker(gpu, ngpus_per_node, args, ast):
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
                 'scheduler' : scheduler.state_dict()
-            }, is_best)
+            }, is_best, ast)
 
     
     ast.done(model)
@@ -543,10 +545,12 @@ def validate(val_loader, model, criterion, args):
     return losses.avg, top1.avg, top5.avg
 
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    torch.save(state, filename)
+def save_checkpoint(state, is_best, ast):
+    checkpoint_path = ast.path('checkpoint.pth')
+    torch.save(state, checkpoint_path)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        best_model_path = ast.path('model_best.pth')
+        shutil.copyfile(checkpoint_path, best_model_path)
 
 class Summary(Enum):
     NONE = 0

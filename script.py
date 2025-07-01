@@ -18,40 +18,33 @@ ARGS_OWN = {
         'type': str,
         'choices': ['airbench_cifar', 'cnn_cifar', 'ecapa_urbansound8k', 'nanogpt_fineweb', 'vgg19_tiny'],
         'help': 'Name of the task (model / data) to solve',
-        'default': 'cnn_cifar'}
-}
-
-
-def parse_args_with_separator():
-    """Parse arguments, separating cryri args from custom command using '--' separator"""
-    if '--' in sys.argv:
-        separator_index = sys.argv.index('--')
-        cryri_args = sys.argv[1:separator_index]
-        custom_command_parts = sys.argv[separator_index + 1:]
-    else:
-        cryri_args = sys.argv[1:]
-        custom_command_parts = []
-    
-    # Temporarily modify sys.argv for the config function
-    original_argv = sys.argv.copy()
-    sys.argv = [sys.argv[0]] + cryri_args
-    
-    try:
-        args, _ = config('TASK_PLACEHOLDER', ARGS_OWN)
-    finally:
-        sys.argv = original_argv
-    
-    return args, custom_command_parts
+        'default': 'cnn_cifar'}}
 
 
 def args_to_str(args):
+    keys_to_remove = ['--' + key for key in ARGS_OWN.keys()]
+
+    new_args = []
+    i = 0
+    n = len(args)
+    while i < n:
+        if args[i] in keys_to_remove:
+            i += 1
+            if i < n and not args[i].startswith('--'):
+                i += 1
+        else:
+            new_args.append(args[i])
+            i += 1
+
+    return ' '.join(new_args)
+
+
+def args_to_str_old(args):
     args_str = ''
     for arg_name in vars(args):
         if arg_name in ARGS_OWN:
             continue
         arg_val = getattr(args, arg_name)
-        if arg_name == 'suffix' and not arg_val:
-            continue # TODO: fix it
         args_str += f'--{arg_name} {arg_val} '
     return args_str
 
@@ -66,8 +59,9 @@ def get_text_ssh():
         conda install -c conda-forge conda-ecosystem-user-package-isolation -y
         pip install -e .
         conda install gcc_linux-64 -y && conda install gxx_linux-64 -y
+        echo -e "\\n\\n\\n\\n\\n>>>>>>>>> WORK_START <<<<<<<<<\\n\\n\\n\\n\\n"
         SCRIPT_COMMAND_PLACEHOLDER
-        echo ">>> WORK IS DONE <<<"
+        echo -e "\\n\\n\\n\\n\\n>>>>>>>>> WORK_DONE <<<<<<<<<\\n\\n\\n\\n\\n"
     """
 
 
@@ -89,22 +83,17 @@ def get_text_yaml():
 
 
 def script():
-    args, custom_command_parts = parse_args_with_separator()
+    task = sys.argv[sys.argv.index("--task")+1]
+    
+    args, _ = config(task, ARGS_OWN)
+    args_str = args_to_str(sys.argv)
 
-    # Always handle task-based placeholder replacements
-    args.root_data = args.root_data.replace('TASK_PLACEHOLDER', args.task)
-    args.root = args.root.replace('TASK_PLACEHOLDER', args.task)
-
-    # Determine what command to run
-    if custom_command_parts:
-        # Custom command mode - use whatever comes after --
-        script_command = f'torchrun --standalone --nproc_per_node=1 {args.task}/run.py ' + ' '.join(custom_command_parts)
-        description = f'{args.task} custom: {script_command}'
+    if args.device_num == 1:
+        runner = 'python'
     else:
-        # Original torchrun mode
-        args_str = args_to_str(args)
-        script_command = f'torchrun --standalone --nproc_per_node=1 {args.task}/run.py {args_str}'.strip()
-        description = f'astralora {args.task}'
+        runner = 'torchrun --standalone --nproc_per_node=1'
+
+    script_command = f'{runner} {args.task}/run.py {args_str}'.strip()
 
     os.makedirs('_tmp', exist_ok=True)
     name_ssh = ''.join(random.choices(string.ascii_uppercase, k=25))
@@ -112,9 +101,9 @@ def script():
     text_ssh = get_text_ssh().replace('    ', '')
     text_ssh = text_ssh.replace('SCRIPT_COMMAND_PLACEHOLDER', script_command)
 
-    print('-' * 50)
-    print(text_ssh)
-    print('-' * 50)
+    #print(fpath_ssh)
+    #print(text_ssh)
+    #raise ValueError('stop')
 
     with open(fpath_ssh, 'w') as f:
         f.write(text_ssh)
@@ -138,7 +127,7 @@ def script():
     with open(fpath_yaml, 'w') as f:
         f.write(text_yaml)
 
-    comment = f'run {description}'
+    comment = f'run astralora (task: {args.task})'
 
     cmd = f'cryri {fpath_yaml} --script {fpath_ssh} --comment "{comment}"'
 
@@ -159,6 +148,28 @@ def script():
 
     # os.remove(fpath_ssh)
     os.remove(fpath_yaml)
+
+
+def _unused_parse_args_with_separator():
+    """Parse arguments, separating cryri args from custom command using '--' separator"""
+    if '--' in sys.argv:
+        separator_index = sys.argv.index('--')
+        cryri_args = sys.argv[1:separator_index]
+        custom_command_parts = sys.argv[separator_index + 1:]
+    else:
+        cryri_args = sys.argv[1:]
+        custom_command_parts = []
+    
+    # Temporarily modify sys.argv for the config function
+    original_argv = sys.argv.copy()
+    sys.argv = [sys.argv[0]] + cryri_args
+    
+    try:
+        args, _ = config('TASK_PLACEHOLDER', ARGS_OWN)
+    finally:
+        sys.argv = original_argv
+    
+    return args, custom_command_parts
 
 
 if __name__ == '__main__':
