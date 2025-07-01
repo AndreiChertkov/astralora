@@ -200,13 +200,15 @@ def main_worker(gpu, ngpus_per_node, args, ast):
         print("=> creating model '{}'".format(args.arch))
         model = models.__dict__[args.arch]()
 
+    REPLACE_ALL = True
     # Replace linear layers in the classifier
     if hasattr(model, 'classifier'):
         for i, layer in enumerate(model.classifier):
             if isinstance(layer, nn.Linear):
                 print(f"  Replacing classifier[{i}] (in: {layer.in_features}, out: {layer.out_features})")
                 model.classifier[i] = ast.build(layer)
-                break
+                if not REPLACE_ALL:
+                    break
     else:
         # For some models, the classifier might be named differently
         for name, module in model.named_modules():
@@ -221,7 +223,8 @@ def main_worker(gpu, ngpus_per_node, args, ast):
                 else:
                     # Root level linear layer
                     setattr(model, child_name, ast.build(module))
-                break
+                if not REPLACE_ALL:
+                    break
 
     if not use_accel:
         print('using CPU, this will be slow')
