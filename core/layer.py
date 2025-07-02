@@ -139,8 +139,8 @@ class AstraloraLayer(nn.Module):
                 self.U, self.S, self.V = psi_implicit(f_old, f_new,
                     self.U, self.S, self.V, self.samples_sm)
 
-        with torch.no_grad():
-            self._debug_err()
+        #with torch.no_grad():
+        #    self._debug_err()
 
     def _update_factors_gd(self, x, y, lr=1.E-4):
         for _ in range(self.gd_update_iters):

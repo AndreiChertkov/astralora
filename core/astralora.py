@@ -100,7 +100,8 @@ class Astralora:
             'accs_trn': self.accs_trn,
             'accs_tst': self.accs_tst})
 
-    def step(self, epoch, loss_trn, loss_tst, acc_trn=None, acc_tst=None):
+    def step(self, epoch=None, loss_trn=None, loss_tst=None,
+             acc_trn=None, acc_tst=None, t=None):
         if loss_trn is not None:
             self.losses_trn.append(loss_trn)
         if loss_tst is not None:
@@ -118,18 +119,21 @@ class Astralora:
             text += f'ITER  | '
         
         if loss_trn is not None and loss_tst is not None:
-            text += f'L > trn: {loss_trn:-8.2e}, tst: {loss_tst:-8.2e} | '
+            text += f'L > trn: {loss_trn:-8.2e}, tst: {loss_tst:-8.2e}'
         elif loss_trn is not None:
-            text += f'L > trn: {loss_trn:-8.2e} | '
+            text += f'L > trn: {loss_trn:-8.2e}'
         elif loss_tst is not None:
-            text += f'L > tst: {loss_tst:-8.2e} | '
+            text += f'L > tst: {loss_tst:-8.2e}'
 
         if acc_trn is not None and acc_tst is not None:
-            text += f'A > trn: {acc_trn:-6.4f}, tst: {acc_tst:-6.4f}'
+            text += f' | A > trn: {acc_trn:-6.4f}, tst: {acc_tst:-6.4f}'
         elif acc_trn is not None:
-            text += f'A > trn: {acc_trn:-6.4f}'
+            text += f' | A > trn: {acc_trn:-6.4f}'
         elif acc_tst is not None:
-            text += f'A > tst: {acc_tst:-6.4f}'
+            text += f' | A > tst: {acc_tst:-6.4f}'
+
+        if t is not None:
+            text += f' | T: {t:-8.2e}'
 
         self.log(text)
 
