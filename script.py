@@ -101,9 +101,9 @@ def script():
     text_ssh = get_text_ssh().replace('    ', '')
     text_ssh = text_ssh.replace('SCRIPT_COMMAND_PLACEHOLDER', script_command)
 
-    #print(fpath_ssh)
-    #print(text_ssh)
-    #raise ValueError('stop')
+    # print(fpath_ssh)
+    # print(text_ssh)
+    # raise ValueError('stop')
 
     with open(fpath_ssh, 'w') as f:
         f.write(text_ssh)
@@ -140,7 +140,7 @@ def script():
     uid = out[-8:]
 
     print(f'\n\n' + '-' * 50)
-    print(f'Job is started. UID is  : {uid}')
+    print(f'Job is started. UID is  : {uid}.')
     print(f'See logs as             : cryri --logs {uid}')
     print(f'Kill job as             : cryri --kill {uid}')
     print(f'See all jobs as         : cryri --jobs_c')
