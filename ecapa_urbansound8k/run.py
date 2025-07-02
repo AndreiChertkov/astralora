@@ -1,24 +1,54 @@
 """Train the ECAPA_TDNN model on UrbanSound8k datacet.
 
-See: https://github.com/speechbrain/speechbrain/tree/c75ab5489431fd0a2a7d21160bc37677801cb506/recipes/UrbanSound8k
+See:
+- The problem: https://github.com/speechbrain/speechbrain/tree/c75ab5489431fd0a2a7d21160bc37677801cb506/recipes/UrbanSound8k
+- The model: https://github.com/speechbrain/speechbrain/blob/c75ab5489431fd0a2a7d21160bc37677801cb506/speechbrain/lobes/models/ECAPA_TDNN.py#L400
+- The paper `ECAPA-TDNN: Emphasized Channel Attention, Propagation and Aggregation in TDNN Based Speaker Verification`
+
+Usage:
+1. Donwload data: wget https://goo.gl/8hY5ER
+2. Unzip data: `tar -xvzf 8hY5ER` (it will be `UrbanSound8K` folder)
+3. Replace `data_folder: !PLACEHOLDER` to `data_folder: _data/UrbanSound8K` in `config.yaml` 
+4. Install: `pip install matplotlib tensorboard scikit-learn speechbrain`
+5. Run: `clear && python ecapa_urbansound8k/run.py --name test --device 1`
 
 """
+from hyperpyyaml import load_hyperpyyaml
 import numpy as np
 import os
-import torch
-import torchaudio
-from confusion_matrix_fig import create_cm_fig
-from hyperpyyaml import load_hyperpyyaml
+import shutil
 from sklearn.metrics import confusion_matrix
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 import sys
-
-
-from urbansound8k_prepare import prepare_urban_sound_8k
+import torch
+import torch.nn as nn
+import torchaudio
 
 
 from core.astralora import Astralora
+
+
+from confusion_matrix_fig import create_cm_fig
+from urbansound8k_prepare import prepare_urban_sound_8k
+
+
+class CustomLayerWrapper(nn.Module):
+    def __init__(self, layer):
+        super().__init__()
+
+        # TODO: parse it from layer:
+        in_channels = 6144
+        out_channels = 192
+
+        self.linear = nn.Linear(in_channels, out_channels, bias=False)
+        
+    def forward(self, x):
+        batch_size, _, time_steps = x.size()
+        x = x.permute(0, 2, 1)
+        x = self.linear(x)
+        x = x.permute(0, 2, 1)
+        return x
 
 
 class UrbanSound8kBrain(sb.core.Brain):
@@ -29,7 +59,6 @@ class UrbanSound8kBrain(sb.core.Brain):
         Data augmentation and environmental corruption are applied to the
         input sound.
         """
-        print('DEBUG Device:', self.device)
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
@@ -264,15 +293,13 @@ class UrbanSound8kBrain(sb.core.Brain):
 
 def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
-
     data_audio_folder = hparams["audio_data_folder"]
     config_sample_rate = hparams["sample_rate"]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
     # TODO  use SB implementation but need to make sure it give the same results as PyTorch
     # resampler = sb.processing.speech_augmentation.Resample(orig_freq=latest_file_sr, new_freq=config_sample_rate)
     hparams["resampler"] = torchaudio.transforms.Resample(
-        new_freq=config_sample_rate
-    )
+        new_freq=config_sample_rate)
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav", "fold")
@@ -339,27 +366,9 @@ def dataio_prep(hparams):
     return datasets, label_encoder
 
 
-import torch.nn as nn
-class PureLinearBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, device=None):
-        super().__init__()
-        self.linear = nn.Linear(in_channels, out_channels, bias=False)
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.device = device
-        
-    def forward(self, x):
-        print('DEBUG custom Device:', self.device, x.device)
-        x = x.to(self.device)
-        batch_size, _, time_steps = x.size()
-        x = x.permute(0, 2, 1)
-        x = self.linear(x)
-        x = x.permute(0, 2, 1)
-        
-        return x
-
-
 def run(task='ecapa_urbansound8k'):
+    torch.backends.cudnn.benchmark = True
+
     ast = Astralora(task, with_neptune=False)
     folder = ast.args.folder + '/speechbrain_output'
 
@@ -373,63 +382,65 @@ def run(task='ecapa_urbansound8k'):
         hyperparams_to_save=fpath,
         overrides=None)
 
-    run_on_main(prepare_urban_sound_8k, kwargs={
-        "data_folder": hparams["data_folder"],
-        "audio_data_folder": hparams["audio_data_folder"],
-        "save_json_train": hparams["train_annotation"],
-        "save_json_valid": hparams["valid_annotation"],
-        "save_json_test": hparams["test_annotation"],
-        "train_fold_nums": hparams["train_fold_nums"],
-        "valid_fold_nums": hparams["valid_fold_nums"],
-        "test_fold_nums": hparams["test_fold_nums"],
-        "skip_manifest_creation": hparams["skip_manifest_creation"]})
-    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
-    sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
+    if False:
+        # TODO: do it while 1th run and save the folder "save"
+        # from "result/NAME/speechbrain_output/urban_sound" to "_data"
+        run_on_main(prepare_urban_sound_8k, kwargs={
+            "data_folder": hparams["data_folder"],
+            "audio_data_folder": hparams["audio_data_folder"],
+            "save_json_train": hparams["train_annotation"],
+            "save_json_valid": hparams["valid_annotation"],
+            "save_json_test": hparams["test_annotation"],
+            "train_fold_nums": hparams["train_fold_nums"],
+            "valid_fold_nums": hparams["valid_fold_nums"],
+            "test_fold_nums": hparams["test_fold_nums"],
+            "skip_manifest_creation": hparams["skip_manifest_creation"]})
+        sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+        sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
+    else:
+        # TODO: note this. We copy the "save" folder with
+        # processed audio data from previous runs:
+        shutil.copytree(
+            src=ast.args.root_data + '/save',
+            dst=folder + '/urban_sound/save',
+            dirs_exist_ok=True,
+            copy_function=shutil.copy2,
+            ignore_dangling_symlinks=True)
 
     datasets, label_encoder = dataio_prep(hparams)
     hparams["label_encoder"] = label_encoder
-
     class_labels = list(label_encoder.ind2lab.values())
-    print("Class Labels:", class_labels)
 
-    urban_sound_8k_brain = UrbanSound8kBrain(
+    model = UrbanSound8kBrain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
         run_opts={"device": str(ast.device)},
         checkpointer=hparams["checkpointer"])
 
-    old_fc = urban_sound_8k_brain.modules.embedding_model.fc
-    print(old_fc)
-    in_channels = 6144 # old_fc.in_channels
-    out_channels = 192 # old_fc.out_channels
+    model.modules.embedding_model.fc = CustomLayerWrapper(
+        model.modules.embedding_model.fc)
+    model.modules.embedding_model.fc = \
+        model.modules.embedding_model.fc.to(ast.device)
 
-    linear_without_bias = PureLinearBlock(
-        in_channels=in_channels,
-        out_channels=out_channels,
-        device=ast.device)
-    urban_sound_8k_brain.modules.embedding_model.fc = linear_without_bias
+    model.modules.embedding_model.fc.linear = ast.build(
+        model.modules.embedding_model.fc.linear)
+    model.modules.embedding_model.fc.linear = \
+        model.modules.embedding_model.fc.linear.to(ast.device)
 
-
-    # The `fit()` method iterates the training loop, calling the methods
-    # necessary to update the parameters of the model. Since all objects
-    # with changing state are managed by the Checkpointer, training can be
-    # stopped at any point, and will be resumed on next call.
-    urban_sound_8k_brain.fit(
-        epoch_counter=urban_sound_8k_brain.hparams.epoch_counter,
+    model.fit(
+        epoch_counter=model.hparams.epoch_counter,
         train_set=datasets["train"],
         valid_set=datasets["valid"],
         train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["dataloader_options"],
-    )
+        valid_loader_kwargs=hparams["dataloader_options"])
 
-    # Load the best checkpoint for evaluation
-    test_stats = urban_sound_8k_brain.evaluate(
+    # Load the best checkpoint for evaluation:
+    test_stats = model.evaluate(
         test_set=datasets["test"],
         min_key="error",
         progressbar=True,
-        test_loader_kwargs=hparams["dataloader_options"],
-    )
+        test_loader_kwargs=hparams["dataloader_options"])
 
     ast.done(model)
 
