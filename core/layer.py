@@ -90,9 +90,13 @@ class AstraloraLayer(nn.Module):
             self.register_buffer('S', None)
             self.register_buffer('V', None)
 
+        
+        # was use_matvec_w = self.do_baseline
+        use_matvec_w = self.samples_bb == -1
+
         self.bb_wrapper = backprop_wrap(self.bb, self.generator,
             self.samples_sm, self.samples_bb, use_sm=self.use_sm,
-            use_matvec_w=self.do_baseline)
+            use_matvec_w=use_matvec_w)
 
     def _debug_err(self):
         # TODO: now it use the exact form of bb. We should remove it later
@@ -127,7 +131,8 @@ class AstraloraLayer(nn.Module):
                 def f_new(X):
                     return self.bb(X, w_new)
 
-                if self.do_baseline:
+                # was self.do_baseline before
+                if self.samples_sm == -1:
                     E = torch.eye(self.d_inp, device=self.device)
                     A = f_new(E).t()
                     U, S, V = torch.linalg.svd(A, full_matrices=False)
