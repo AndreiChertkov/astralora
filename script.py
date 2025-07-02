@@ -88,10 +88,10 @@ def script():
     args, _ = config(task, ARGS_OWN)
     args_str = args_to_str(sys.argv[1:])
 
-    if args.device_num == 1:
-        runner = 'python'
-    else:
-        runner = 'torchrun --standalone --nproc_per_node=1'
+    #if args.device_num == 1:
+    #    runner = 'python'
+    #else:
+    runner = 'torchrun --standalone --nproc_per_node=1'
 
     script_command = f'{runner} {args.task}/run.py {args_str}'.strip()
 
