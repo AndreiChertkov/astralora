@@ -5,12 +5,6 @@ from torch import nn
 import torch.nn.functional as F
 
 
-from layers.astralora_layer import AstraloraLayer
-from layers.astralora_gd_layer import AstraloraGDLayer
-from layers.nograd_layer import NoGradLinear
-from layers.truelowrank_layer import TrueLowRankLinear
-
-
 class Model(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -140,43 +134,8 @@ class MLP(nn.Module):
         super().__init__()
 
         self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd, bias=False)
-        
-        # Determine projection layer type based on config mode
-        self.c_proj = self._create_projection_layer(config, layer_num)
-
-    def _create_projection_layer(self, config, layer_num):
-        """Create the appropriate projection layer based on configuration mode."""
-        is_last_layer = layer_num == config.n_layer - 1
-        in_features, out_features = 4 * config.n_embd, config.n_embd
-        
-        # Layer type selection based on mode:
-
-        if config.mode == 'nograd':
-            return NoGradLinear(in_features, out_features)
-        
-        elif config.mode == 'truelowrank':
-            return TrueLowRankLinear(
-                in_features, out_features,
-                rank=config.rank)
-        
-        elif config.mode == 'bb_all' or (config.mode == 'bb' and is_last_layer):
-            return AstraloraLayer(
-                in_features, out_features, config.bb_d, config.bb_kind,
-                config.rank, config.samples_bb, config.samples_sm,
-                config.use_sm, config.use_gd_update, config.gd_update_iters,
-                log=config.log, nepman=config.nepman)
-        
-        elif config.mode == 'bb_gd_all':
-            return AstraloraGDLayer(
-                in_features, out_features,
-                rank=config.rank, 
-                log=config.log,
-                lr=config.lr)
-        
-        else:  # Default case: standard linear layer with zero initialization
-            layer = nn.Linear(in_features, out_features, bias=False)
-            layer.weight.data.zero_()
-            return layer
+        self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd, bias=False)
+        self.c_proj.weight.data.zero_()
 
     def forward(self, x):
         x = self.c_fc(x)

@@ -12,16 +12,7 @@ import torch._dynamo
 torch._dynamo.config.suppress_errors = True
 
 
-from layers.astralora_layer import AstraloraLayer
-
-
-from config.config import config
-from utils.utils import init_log
-from utils.utils import init_neptune
-from utils.utils import init_path
-from utils.utils import init_seed
-from utils.utils import modify_gpu_args_for_cryri
-from utils.utils import save_args_to_markdown
+from core.astralora import Astralora
 
 
 from data import DistributedDataLoader
@@ -31,10 +22,7 @@ from optimizer_muon import OptimizerMuon
 
 @record
 @torch.compiler.disable
-def run(args, args_parser):
-    # --- Set the global seed value
-    init_seed(args.seed)
-
+def run():
     # --- Set up DDP (distributed data parallel) computation mode:
     dist.init_process_group(backend='nccl')
     ddp_rank = int(os.environ['RANK'])
@@ -42,30 +30,14 @@ def run(args, args_parser):
     ddp_world_size = int(os.environ['WORLD_SIZE'])
     master_process = (ddp_rank == 0)
     
+    # TODO: add support for multi-gpu (if master_process)
+    ast = Astralora('nanogpt_fineweb', with_neptune=False)
+    args = ast.args
+
     # --- Init device:
-    assert torch.cuda.is_available(), 'It works only with cuda'
-    gpu_num = int(args.gpus.replace(' ', '').split(',')[ddp_local_rank])
-    device = f'cuda:{gpu_num}'
-    torch.cuda.set_device(device)
-
-    # --- Init folders and log:
-    if master_process:
-        init_path(args.name, args.root, args.rewrite)
-
-    args.folder = os.path.join(args.root, args.name)
-    fpath = os.path.join(args.folder, 'log.txt')
-    log = init_log(fpath=fpath, enable=master_process)
-
-    if master_process:
-        fpath = os.path.join(args.folder, 'args.md')
-        save_args_to_markdown(args, args_parser, fpath)
-
-    # --- Initialize Neptune:
-    if master_process:
-        nepman, url = init_neptune(args.name, 'set_neptune_env.sh', args)
-        log('Use neptune. See: ' + url, 'res')
-    else:
-        nepman = None
+    # assert torch.cuda.is_available(), 'It works only with cuda'
+    # gpu_num = int(args.gpus.replace(' ', '').split(',')[ddp_local_rank])
+    torch.cuda.set_device(ast.device)
 
     # --- Calculate the number of steps to take in the validation loop:
     B = args.batch_size
@@ -77,24 +49,16 @@ def run(args, args_parser):
     loader_trn = DistributedDataLoader(args, ddp_rank, ddp_world_size)
     loader_vld = DistributedDataLoader(args, ddp_rank, ddp_world_size, vld=True)
     
-    # --- Log info:
-    if master_process:
-        nepman['info/ddp_world_size'] = ddp_world_size
-        nepman['info/data_trn'] = loader_trn.info()
-        nepman['info/data_vld'] = loader_vld.info()
-        
     x, y = loader_trn.next_batch()
 
     # --- Init the model:
     model = Model(SimpleNamespace(
         vocab_size=50304, block_size=1024,
-        n_layer=args.num_blocks, n_head=args.num_head, n_embd=768*2,
-        mode=args.mode, bb_d=args.bb_d, bb_kind=args.bb_kind,
-        rank=args.rank, samples_bb=args.samples_bb, samples_sm=args.samples_sm,
-        use_sm=not args.use_stochastic_w,
-        use_gd_update=args.use_gd_update,
-        gd_update_iters=args.gd_update_iters,
-        log=log, nepman=nepman))
+        n_layer=args.num_blocks, n_head=args.num_head, n_embd=768*2))
+
+    model.transformer.h[-1].mlp.c_proj = ast.build(
+        model.transformer.h[-1].mlp.c_proj)
+
     model = model.cuda()
     model.master_process = master_process
     
@@ -105,7 +69,7 @@ def run(args, args_parser):
     model = torch.compile(model)
     
     # --- Wrap model into DDP container:
-    model = DDP(model, device_ids=[gpu_num])
+    model = DDP(model) #, device_ids=[gpu_num])
     model_raw = model.module # Always contains the unwrapped model
     ctx = torch.amp.autocast(device_type='cuda', dtype=torch.float32)
 
@@ -196,19 +160,10 @@ def run(args, args_parser):
                     del loss
             dist.all_reduce(loss_vld, op=dist.ReduceOp.AVG)
             loss_vld /= val_steps
-            
-            # Log the value:
-            if master_process:
-                log(f'Validation # {step+1:-4d} | loss {loss_vld:.4f}', 'res')
-                nepman['validation/loss'].append(loss_vld.item())
-                nepman['validation/step'].append(step + 1)
 
             # Start the clock again:
             torch.cuda.synchronize()
             t0 = time.time()
-
-        if last_step:
-            break
 
         # --- Train the model:
         model.train()
@@ -235,39 +190,17 @@ def run(args, args_parser):
             sched.step()
         model.zero_grad(set_to_none=True)
 
-        # --- Log the train results:
-        if master_process:
+        if master_process and do_vld:
             approx_time = training_time_ms + 1000 * (time.time() - t0)
-            log(f'step:{step+1}/{args.num_iterations} train_loss:{loss_trn.item():.4f} train_time:{approx_time/1000:.2f}s step_avg:{approx_time/timed_steps/1000:.2f}s')
-            nepman['training/step'].append(step + 1)
-            nepman['training/loss'].append(loss_trn.item())
-            nepman['training/time'].append(approx_time / 1000)
-            nepman['training/step_time'].append(approx_time/timed_steps/1000)
+            ast.step(step, loss_trn.item(), loss_vld, t=approx_time/1000)
 
-    # --- Save the trained model:
-    if master_process and args.save_model:
-        # Stop the clock:
-        torch.cuda.synchronize()
-        training_time_ms += 1000 * (time.time() - t0)
-        # Save the state of the training process:
-        fpath = os.path.join(args.root, args.name, 'model.pt')
-        torch.save(model_raw.state_dict(), fpath)
-        # Start the clock again:
-        torch.cuda.synchronize()
-        t0 = time.time()
+        if last_step:
+            break
 
-    # --- Completion of the work process:
-    if master_process:
-        mem = torch.cuda.max_memory_allocated() // 1024 // 1024
-        log(f'Memory used: {mem}', 'res')
-        nepman['system/memory_used'] = mem
-        nepman.stop()
-        
+    ast.done(model)
+
     dist.destroy_process_group()
 
 
 if __name__ == '__main__':
-    args, args_parser = config('nanogpt_fineweb')
-    args = modify_gpu_args_for_cryri(args)
-
-    run(args, args_parser)
+    run()
