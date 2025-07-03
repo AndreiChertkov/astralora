@@ -13,9 +13,11 @@ class AstraloraLayer(nn.Module):
     def __init__(self, d_inp, d_out, d=None, kind='matvec', rank=1,
                  samples_bb=100, samples_sm=100, use_sm=True, 
                  use_gd_update=False, gd_update_iters=1,
-                 do_baseline=False, log=print, nepman=None):
+                 do_baseline=False, log=print, nepman=None,
+                 use_residual=False):
         super().__init__()
         
+        self.use_residual = use_residual
         self.d_inp = d_inp
         self.d_out = d_out
         self.d = d
@@ -51,7 +53,8 @@ class AstraloraLayer(nn.Module):
         text += f'samples_bb={self.samples_bb}, '
         text += f'samples_sm={self.samples_sm}, '
         text += f'use_sm={self.use_sm}, '
-        text += f'use_gd_update={self.use_gd_update}'
+        text += f'use_gd_update={self.use_gd_update}, '
+        text += f'use_residual={self.use_residual}'
         return text
 
     def forward(self, x):
@@ -69,6 +72,9 @@ class AstraloraLayer(nn.Module):
         self.w_old = self.w.data.detach().clone()
             
         y = y.reshape(*shape[:-1], y.shape[-1])
+
+        if self.use_residual:
+            y = y + x
 
         return y
 

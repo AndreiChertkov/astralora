@@ -203,28 +203,19 @@ def main_worker(gpu, ngpus_per_node, args, ast):
     REPLACE_ALL = True
     # Replace linear layers in the classifier
     if hasattr(model, 'classifier'):
+        cnt = 0
         for i, layer in enumerate(model.classifier):
+            
             if isinstance(layer, nn.Linear):
-                print(f"  Replacing classifier[{i}] (in: {layer.in_features}, out: {layer.out_features})")
-                model.classifier[i] = ast.build(layer)
-                if not REPLACE_ALL:
-                    break
+
+                cnt += 1
+                if cnt == 2:
+                    print(f"  Replacing classifier[{i}] (in: {layer.in_features}, out: {layer.out_features})")
+                    model.classifier[i] = ast.build(layer)
+                    if not REPLACE_ALL:
+                        break
     else:
-        # For some models, the classifier might be named differently
-        for name, module in model.named_modules():
-            if isinstance(module, nn.Linear):
-                print(f"  Replacing {name} (in: {module.in_features}, out: {module.out_features})")
-                # This is a bit tricky, we need to replace the parent's child
-                parent_name = '.'.join(name.split('.')[:-1])
-                child_name = name.split('.')[-1]
-                if parent_name:
-                    parent = dict(model.named_modules())[parent_name]
-                    setattr(parent, child_name, ast.build(module))
-                else:
-                    # Root level linear layer
-                    setattr(model, child_name, ast.build(module))
-                if not REPLACE_ALL:
-                    break
+        raise ValueError(f"Model {args.arch} has no classifier")
 
     if not use_accel:
         print('using CPU, this will be slow')

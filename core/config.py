@@ -91,6 +91,13 @@ def _config_astralora(task, parser):
         nargs='?',
         const=True,
         default=False)
+    
+    parser.add_argument('--use_residual',
+        type=lambda x: bool(strtobool(x)),
+        help='Do we use residual connections',
+        nargs='?',
+        const=True,
+        default=False)
 
 
 def _config_base(task, parser):
@@ -139,6 +146,9 @@ def _config_base(task, parser):
         choices=[
             "matvec",                # Simple linear-like layer
             "slm",                   # SLM layer
+            "id",                    # Identity layer
+            "morr",                  # MRR layer from torch-onn,
+            "mzi",                   # MZI layer from torch-onn
         ],
         default="matvec")
 
@@ -269,7 +279,7 @@ def _config_vgg19_tiny_imagenet(task, parser):
                         choices=['vgg19'], help='vgg19')
     parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                         help='number of data loading workers (default: 8)')
-    parser.add_argument('--epochs', default=1000, type=int, metavar='N',
+    parser.add_argument('--epochs', default=200, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')

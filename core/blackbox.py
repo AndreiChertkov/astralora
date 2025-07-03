@@ -107,6 +107,18 @@ def bb_build(d_inp, d_out, d, kind='matvec'):
         torch.nn.init.kaiming_uniform_(w, a=math.sqrt(5))
         w = w.reshape(-1)
 
+    elif kind == 'id':
+        def bb(x, w):
+            return x
+
+        w = torch.Tensor([])
+
+    elif kind == 'mrr':
+        raise NotImplementedError
+
+    elif kind == 'mzi':
+        raise NotImplementedError
+
     else:
         raise NotImplementedError
     

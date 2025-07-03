@@ -1,3 +1,4 @@
+from distutils.util import strtobool
 import os
 import random
 import string
@@ -18,7 +19,11 @@ ARGS_OWN = {
         'type': str,
         'choices': ['airbench_cifar', 'cnn_cifar', 'ecapa_urbansound8k', 'nanogpt_fineweb', 'vgg19_tiny'],
         'help': 'Name of the task (model / data) to solve',
-        'default': 'cnn_cifar'}}
+        'default': 'cnn_cifar'},
+    'torchrun': {
+        'type': int,
+        'help': 'Do we use torchrun to run the script (=1)',
+        'default': 0}}
 
 
 def args_to_str(args):
@@ -37,16 +42,6 @@ def args_to_str(args):
             i += 1
 
     return ' '.join(new_args)
-
-
-def args_to_str_old(args):
-    args_str = ''
-    for arg_name in vars(args):
-        if arg_name in ARGS_OWN:
-            continue
-        arg_val = getattr(args, arg_name)
-        args_str += f'--{arg_name} {arg_val} '
-    return args_str
 
 
 def get_text_ssh():
@@ -78,7 +73,7 @@ def get_text_yaml():
           instance_type: "GPU_PLACEHOLDER"
           n_workers: 1  # Number of worker instances, 1 is only option
           priority: "medium" # ['high', 'medium', 'low']
-          description: "astralora job"
+          description: "astralora"
     """
 
 
@@ -88,10 +83,10 @@ def script():
     args, _ = config(task, ARGS_OWN)
     args_str = args_to_str(sys.argv[1:])
 
-    #if args.device_num == 1:
-    #    runner = 'python'
-    #else:
-    runner = 'torchrun --standalone --nproc_per_node=1'
+    if args.torchrun:
+        runner = 'torchrun --standalone --nproc_per_node=1'
+    else:
+        runner = 'python'
 
     script_command = f'{runner} {args.task}/run.py {args_str}'.strip()
 
@@ -127,7 +122,7 @@ def script():
     with open(fpath_yaml, 'w') as f:
         f.write(text_yaml)
 
-    comment = f'run astralora (task: {args.task})'
+    comment = f'{args.task} (args: {args_str})'
 
     cmd = f'cryri {fpath_yaml} --script {fpath_ssh} --comment "{comment}"'
 

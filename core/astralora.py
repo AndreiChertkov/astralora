@@ -52,18 +52,32 @@ class Astralora:
             return layer
 
         if self.args.mode == 'bb':
-            return AstraloraLayer(d_inp, d_out,
-                self.args.bb_d, self.args.bb_kind,
-                self.args.rank, self.args.samples_bb, self.args.samples_sm,
-                not self.args.use_stochastic_w,
-                self.args.use_gd_update, self.args.gd_update_iters,
-                self.args.bb_do_baseline, self.log, self.nepman)
+            return AstraloraLayer(
+                d_inp=d_inp,
+                d_out=d_out,
+                d=self.args.bb_d, 
+                kind=self.args.bb_kind,
+                rank=self.args.rank, 
+                samples_bb=self.args.samples_bb,
+                samples_sm=self.args.samples_sm,
+                use_sm=not self.args.use_stochastic_w,
+                use_gd_update=self.args.use_gd_update,
+                gd_update_iters=self.args.gd_update_iters,
+                do_baseline=self.args.bb_do_baseline,
+                log=self.log,
+                nepman=self.nepman,
+                use_residual=self.args.use_residual
+            )
         
         raise NotImplementedError
 
     def done(self, model):
-        self.save(model)
+        if self.model:
+            self.save(model)
+        else:
+            self.log('No model to save')
         self.plot()
+        
 
     def path(self, fpath):
         return os.path.join(self.args.folder, fpath)
