@@ -114,7 +114,7 @@ def bb_build(d_inp, d_out, d, kind='matvec'):
         w = torch.Tensor([])
 
     elif kind == 'mrr':
-        raise NotImplementedError
+        bb, w = create_mrr_linear(d_inp, d_out)
 
     elif kind == 'mzi':
         raise NotImplementedError
