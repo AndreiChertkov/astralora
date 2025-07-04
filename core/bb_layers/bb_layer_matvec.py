@@ -15,5 +15,7 @@ def create_bb_layer_matvec(d_inp, d_out):
     w = torch.empty((d_out, d_inp))
     torch.nn.init.kaiming_uniform_(w, a=math.sqrt(5))
     w = w.reshape(-1)
+
+    dw = 1.
     
-    return bb, w
+    return bb, w, dw

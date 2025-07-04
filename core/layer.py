@@ -14,45 +14,45 @@ from .bb_layers.bb_layer_slm import create_bb_layer_slm
 
 
 class AstraloraLayer(nn.Module):
-    def __init__(self, d_inp, d_out, d=None, kind='matvec', rank=1,
-                 samples_bb=100, samples_sm=100, use_sm=True, 
-                 use_gd_update=False, gd_update_iters=1,
-                 do_baseline=False, log=print, nepman=None,
-                 use_residual=False):
+    def __init__(self, d_inp, d_out, kind, rank, samples_bb, samples_sm, 
+                 use_gd_update, gd_update_iters, use_residual,
+                 log=print, nepman=None):
         super().__init__()
         
-        self.use_residual = use_residual
+        
         self.d_inp = d_inp
         self.d_out = d_out
-        self.d = d
-        if self.d is None or self.d < 0:
-            self.d = self.d_inp * self.d_out
         self.kind = kind
         self.rank = rank
         self.samples_bb = samples_bb
         self.samples_sm = samples_sm
-        self.use_sm = use_sm
         self.use_gd_update = use_gd_update
         self.gd_update_iters = gd_update_iters
-        self.do_baseline = do_baseline
+        self.use_residual = use_residual
         self.log = log
         self.nepman = nepman
 
         self.log('... Init Astralora layer : \n     ' + self.extra_repr())
 
         if self.kind == 'id':
-            self.bb, w = create_bb_layer_id(self.d_inp, self.d_out)
+            self.bb, w0, self.dw = create_bb_layer_id(
+                self.d_inp, self.d_out)
         elif self.kind == 'matvec':
-            self.bb, w = create_bb_layer_matvec(self.d_inp, self.d_out)
+            self.bb, w0, self.dw = create_bb_layer_matvec(
+                self.d_inp, self.d_out)
         elif self.kind == 'mrr':
-            self.bb, w = create_bb_layer_mrr(self.d_inp, self.d_out)
+            self.bb, w0, self.dw = create_bb_layer_mrr(
+                self.d_inp, self.d_out)
         elif self.kind == 'mzi':
-            self.bb, w = create_bb_layer_mzi(self.d_inp, self.d_out)
+            self.bb, w0, self.dw = create_bb_layer_mzi(
+                self.d_inp, self.d_out)
         elif self.kind == 'slm':
-            self.bb, w = create_bb_layer_slm(self.d_inp, self.d_out)
+            self.bb, w0, self.dw = create_bb_layer_slm(
+                self.d_inp, self.d_out)
         else:
             raise NotImplementedError
-        self.w = nn.Parameter(w)
+        
+        self.w = nn.Parameter(w0)
         self.w_old = None
 
         self.device = None
@@ -62,14 +62,14 @@ class AstraloraLayer(nn.Module):
         text = ''
         text += f'd_inp={self.d_inp}, '
         text += f'd_out={self.d_out}, '
-        text += f'd={self.d}, '
         text += f'kind={self.kind}, '
         text += f'rank={self.rank}, '
         text += f'samples_bb={self.samples_bb}, '
-        text += f'samples_sm={self.samples_sm}, '
-        text += f'use_sm={self.use_sm}, '
-        text += f'use_gd_update={self.use_gd_update}, '
-        text += f'use_residual={self.use_residual}'
+        text += f'samples_sm={self.samples_sm}'
+        if self.use_gd_update:
+            text += f', use_gd_update={self.use_gd_update}'
+        if self.use_residual:
+            text += f', use_residual={self.use_residual}'
         return text
 
     def forward(self, x):
@@ -81,7 +81,7 @@ class AstraloraLayer(nn.Module):
 
         y = self.bb_wrapper(x, self.w, self.U, self.S, self.V)
 
-        if self.training and self.use_sm and self.w_old is not None:
+        if self.training and self.w_old is not None:
             self._update_factors(x.detach().clone(), y.detach().clone())
 
         self.w_old = self.w.data.detach().clone()
@@ -99,25 +99,22 @@ class AstraloraLayer(nn.Module):
         self.generator = torch.Generator(device=self.device)
         self.generator.manual_seed(42)
 
-        if self.use_sm:
+        if True:
             U, S, V = approximation(self.bb, self.d_inp, self.d_out,
                 self.w.data.clone(), self.rank, self.log, self.nepman)
             self.register_buffer('U', U)
             self.register_buffer('S', S)
             self.register_buffer('V', V)
-            self._debug_err()
+            # self._debug_err()
         else:
             self.register_buffer('U', None)
             self.register_buffer('S', None)
             self.register_buffer('V', None)
 
-        
-        # was use_matvec_w = self.do_baseline
-        use_matvec_w = self.samples_bb == -1
-
         self.bb_wrapper = backprop_wrap(self.bb, self.generator,
-            self.samples_sm, self.samples_bb, use_sm=self.use_sm,
-            use_matvec_w=use_matvec_w)
+            self.samples_sm, self.samples_bb,
+            stoch_shift_w = self.dw,
+            use_matvec_w=(self.samples_bb == -1))
 
     def _debug_err(self):
         # TODO: now it use the exact form of bb. We should remove it later
@@ -152,7 +149,6 @@ class AstraloraLayer(nn.Module):
                 def f_new(X):
                     return self.bb(X, w_new)
 
-                # was self.do_baseline before
                 if self.samples_sm == -1:
                     E = torch.eye(self.d_inp, device=self.device)
                     A = f_new(E).t()

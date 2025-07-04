@@ -20,6 +20,7 @@ class Astralora:
         self.args = modify_gpu_args_for_cryri(self.args)
 
         init_seed(self.args.seed)
+        
         if master_process:
             init_path(self.args.name, self.args.root, self.args.rewrite)
         self.args.folder = os.path.join(self.args.root, self.args.name)
@@ -57,27 +58,31 @@ class Astralora:
             return AstraloraLayer(
                 d_inp=d_inp,
                 d_out=d_out,
-                d=self.args.bb_d, 
                 kind=self.args.bb_kind,
                 rank=self.args.rank, 
                 samples_bb=self.args.samples_bb,
                 samples_sm=self.args.samples_sm,
-                use_sm=not self.args.use_stochastic_w,
                 use_gd_update=self.args.use_gd_update,
                 gd_update_iters=self.args.gd_update_iters,
-                do_baseline=self.args.bb_do_baseline,
+                use_residual=self.args.use_residual,
                 log=self.log,
-                nepman=self.nepman,
-                use_residual=self.args.use_residual
-            )
+                nepman=self.nepman)
         
         raise NotImplementedError
 
     def done(self, model=None):
         if model is not None:
-            self.save(model)
+            torch.save(model.state_dict(), self.path('model.pth'))
         else:
-            self.log('No model to save')
+            self.log('Astralora.done: no model to save', 'wrn')
+
+        np.savez_compressed(self.path('result.npz'), res={
+            'args': self._args_to_dict(),
+            'losses_trn': self.losses_trn,
+            'losses_tst': self.losses_tst,
+            'accs_trn': self.accs_trn,
+            'accs_tst': self.accs_tst})
+
         self.plot()
         
     def path(self, fpath):
@@ -95,7 +100,7 @@ class Astralora:
             plt.tight_layout()
             plt.savefig(self.path('_plot_loss.png'))
 
-        if len(self.accs_trn) == 0 or len(self.accs_tst) == 0:
+        if len(self.accs_trn) > 0 and len(self.accs_tst) > 0:
             plt.plot(self.accs_trn, label='Train Accuracy')
             plt.plot(self.accs_tst, label='Test Accuracy')
             plt.xlabel('Epochs')
@@ -104,16 +109,6 @@ class Astralora:
             plt.title('Accuracy Evolution')
             plt.tight_layout()
             plt.savefig(self.path('_plot_acc.png'))
-
-    def save(self, model):
-        torch.save(model.state_dict(), self.path('model.pth'))
-
-        np.savez_compressed(self.path('result.npz'), res={
-            'args': self._args_to_dict(),
-            'losses_trn': self.losses_trn,
-            'losses_tst': self.losses_tst,
-            'accs_trn': self.accs_trn,
-            'accs_tst': self.accs_tst})
 
     def step(self, epoch=None, loss_trn=None, loss_tst=None,
              acc_trn=None, acc_tst=None, t=None):

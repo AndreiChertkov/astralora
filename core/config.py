@@ -16,7 +16,7 @@ def config(task, args_add={}):
         parser.add_argument_group("Parameters for general options"))
 
     _config_astralora(task,
-        parser.add_argument_group("Parameters for task custom layer training"))
+        parser.add_argument_group("Parameters for custom layer training"))
 
     if task == 'airbench_cifar':
         _config_airbench_cifar(task,
@@ -36,7 +36,7 @@ def config(task, args_add={}):
 
     if task == 'vgg19_tiny':
         _config_vgg19_tiny_imagenet(task,
-            parser.add_argument_group("Parameters for task vgg19/tiny-imagenet"))
+            parser.add_argument_group("Parameters for task vgg19/tiny"))
 
     if 'JPY_PARENT_PID' in os.environ:
         # Jupyter can not use the console arguments, hence empty list:
@@ -54,44 +54,31 @@ def _config_airbench_cifar(task, parser):
 def _config_astralora(task, parser):
     parser.add_argument('--rank',
         type=int,
-        help='Rank for the low-rank model. Used in bb, bb_one, and truelowrank modes',
+        help='Rank for the low-rank model.',
         default=10)
 
     parser.add_argument('--samples_bb',
         type=int,
-        help='Number of samples to train bb (its parameters)',
+        help='Number of samples to train bb (its parameters). If =-1, then "exact" computation performed.',
         default=100)
     
     parser.add_argument('--samples_sm',
         type=int,
-        help='Number of samples to update surrogate model',
+        help='Number of samples to update surrogate model. If =-1, then "exact" computation performed.',
         default=100)
 
-    parser.add_argument('--gd_update_iters',
-        type=int,
-        default=1)
-    
     parser.add_argument('--use_gd_update',
         type=lambda x: bool(strtobool(x)),
         help='It true, we use gd-based naive update instead of PSI',
         nargs='?',
         const=True,
         default=False)
-
-    parser.add_argument('--use_stochastic_w',
-        type=lambda x: bool(strtobool(x)),
-        help='Do we use stochastic formula to update w; if not, a surrogate model will be used',
-        nargs='?',
-        const=True,
-        default=False)
-
-    parser.add_argument('--bb_do_baseline',
-        type=lambda x: bool(strtobool(x)),
-        help='Do we perform exact computations of gradients and SVD (to obtain a baseline)',
-        nargs='?',
-        const=True,
-        default=False)
     
+    parser.add_argument('--gd_update_iters',
+        type=int,
+        help='Number of iterations for gd-based naive update',
+        default=1)
+
     parser.add_argument('--use_residual',
         type=lambda x: bool(strtobool(x)),
         help='Do we use residual connections',
@@ -135,27 +122,17 @@ def _config_base(task, parser):
         help='GPU device id to use. If it is not set (= -1), then auto selection will be performed',
         default=0)
 
-    parser.add_argument('--bb_d',
-        type=int,
-        help='Number of parameters in the bb-layer. If = -1, then auto set',
-        default=-1)
-
     parser.add_argument("--bb_kind",
         type=str, 
         help="Kind of the used black box",
         choices=[
-            "matvec",                # Simple linear-like layer
-            "slm",                   # SLM layer
             "id",                    # Identity layer
-            "mrr",                   # MRR layer from torch-onn,
+            "matvec",                # Simple linear-like layer
+            "mrr",                   # MRR layer from torch-onn
             "mzi",                   # MZI layer from torch-onn
+            "slm",                   # SLM layer
         ],
         default="matvec")
-
-    parser.add_argument('--gpus',
-        type=str,
-        help='Numbers of used GPUs (comma-separated). Note that "nproc_per_node" argument for torchrun should be chosen accordingly (! TODO ! remove nproc_per_node)',
-        default='0')
 
     parser.add_argument('--save_model',
         type=lambda x: bool(strtobool(x)),

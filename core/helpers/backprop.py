@@ -2,7 +2,7 @@ import torch
 
 
 def backprop_wrap(bb_func, generator, samples_x=1, samples_w=1,
-                  use_sm=True, use_matvec_w=False):
+                  stoch_shift_w=1., use_sm=True, use_matvec_w=False):
     class FuncCustom(torch.autograd.Function):
         @staticmethod
         def forward(ctx, x, w, U, S, V):
@@ -24,7 +24,7 @@ def backprop_wrap(bb_func, generator, samples_x=1, samples_w=1,
                 grad_w = grad_w.reshape(-1)
             else:
                 grad_w = _backprop_stochastic(bb_func, x, w, grad_output, 
-                    generator, samples_w, for_x=False)
+                    generator, samples_w, stoch_shift_w, for_x=False)
 
             return grad_x, grad_w, None, None, None
 

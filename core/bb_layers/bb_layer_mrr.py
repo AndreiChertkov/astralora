@@ -33,8 +33,10 @@ def create_bb_layer_mrr(d_inp, d_out):
         return x @ weight
 
     w = build_parameters()
+
+    dw = 0.01
     
-    return bb, w
+    return bb, w, dw
 
 
 def mrr_roundtrip_phase_to_tr(
