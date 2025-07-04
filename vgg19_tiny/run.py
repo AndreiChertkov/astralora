@@ -1,3 +1,28 @@
+"""
+ViT-B/32 training script for ImageNet-1K and Tiny ImageNet.
+
+Key features:
+- Uses torchvision's Vision Transformer implementation
+- ViT-B/32 model with configurable classes (1000 for ImageNet-1K, 200 for Tiny ImageNet)
+- Applied LoRA to attention and MLP layers
+- AdamW optimizer with cosine annealing scheduler
+- Dataset-specific data augmentation optimized for each dataset type
+- Automatic dataset switching with --dataset argument
+- Automatic dataset download (Tiny ImageNet from web, ImageNet-1K from HuggingFace)
+- Supports both ImageNet-1K and Tiny ImageNet datasets
+
+Requirements for ImageNet-1K:
+  pip install datasets pillow
+  
+Note: ImageNet-1K download from HuggingFace (ILSVRC/imagenet-1k) may require:
+- HuggingFace account with access to the dataset
+- Authentication via huggingface-hub login
+
+Usage:
+  python run.py --dataset tiny-imagenet    # Train on Tiny ImageNet (default)
+  python run.py --dataset imagenet-1k     # Train on ImageNet-1K (downloads automatically)
+"""
+
 import argparse
 import os
 import random
@@ -22,9 +47,81 @@ import torch.utils.data.distributed
 import torchvision.datasets as datasets
 import torchvision.models as models
 import torchvision.transforms as transforms
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import Subset
 from core.astralora import Astralora
+
+
+def download_imagenet_1k(data_dir='imagenet-1k'):
+    """
+    Download and prepare ImageNet-1K dataset using HuggingFace datasets.
+    """
+    try:
+        from datasets import load_dataset
+        from PIL import Image
+    except ImportError:
+        raise ImportError("Please install datasets and PIL: pip install datasets pillow")
+    
+    if os.path.exists(os.path.join(data_dir, 'train')) and os.path.exists(os.path.join(data_dir, 'val')):
+        print(f"ImageNet-1K dataset already exists in {data_dir}")
+        return data_dir
+    
+    print("Downloading ImageNet-1K dataset from HuggingFace...")
+    print("This may take a while as ImageNet-1K is a large dataset...")
+    
+    # Create data directory
+    os.makedirs(data_dir, exist_ok=True)
+    
+    try:
+        # Load dataset from HuggingFace
+        print("Loading dataset from ILSVRC/imagenet-1k...")
+        dataset = load_dataset("ILSVRC/imagenet-1k", cache_dir=os.path.join(data_dir, 'cache'), trust_remote_code=True)
+        
+        # Create train and val directories
+        train_dir = os.path.join(data_dir, "train")
+        val_dir = os.path.join(data_dir, "val")
+        os.makedirs(train_dir, exist_ok=True)
+        os.makedirs(val_dir, exist_ok=True)
+        
+        def save_split(split_name, split_data, output_dir):
+            print(f"Processing {split_name} split...")
+            class_dirs = {}
+            
+            for idx, example in enumerate(tqdm(split_data, desc=f"Saving {split_name}")):
+                label = example['label']
+                image = example['image']
+                
+                # Create class directory if it doesn't exist
+                if label not in class_dirs:
+                    class_dir = os.path.join(output_dir, str(label).zfill(4))  # Zero-pad to 4 digits
+                    os.makedirs(class_dir, exist_ok=True)
+                    class_dirs[label] = class_dir
+                
+                # Save image
+                image_path = os.path.join(class_dirs[label], f"{idx:08d}.JPEG")
+                if isinstance(image, Image.Image):
+                    image.save(image_path, "JPEG")
+                else:
+                    # Handle case where image might be in different format
+                    Image.fromarray(image).save(image_path, "JPEG")
+        
+        # Save training split
+        save_split("train", dataset["train"], train_dir)
+        
+        # Save validation split  
+        save_split("validation", dataset["validation"], val_dir)
+        
+        print(f"ImageNet-1K dataset prepared in {data_dir}")
+        print(f"Train samples: {len(dataset['train'])}")
+        print(f"Validation samples: {len(dataset['validation'])}")
+        
+    except Exception as e:
+        print(f"Error downloading ImageNet-1K: {e}")
+        print("Please make sure you have access to the ILSVRC/imagenet-1k dataset on HuggingFace.")
+        print("You may need to request access or provide authentication.")
+        raise
+    
+    return data_dir
 
 
 def download_tiny_imagenet(data_dir='tiny-imagenet'):
@@ -109,6 +206,8 @@ def download_tiny_imagenet(data_dir='tiny-imagenet'):
 
 
 
+
+
 best_acc1 = 0
 
 
@@ -116,10 +215,31 @@ def main():
     
     ast = Astralora('vgg19_tiny', with_neptune=False)
     args = ast.args
-
-    # Download Tiny ImageNet dataset if needed
+    
+    # Determine dataset type based on the dataset argument
+    dataset_type = args.dataset
+    
+    # Handle dataset preparation based on type
     if not args.dummy:
-        args.data = download_tiny_imagenet(args.data)
+        if dataset_type == 'tiny-imagenet':
+            print("Using Tiny ImageNet dataset")
+            tiny_data_dir = os.path.join(args.data, 'tiny-imagenet')
+            args.data = download_tiny_imagenet(tiny_data_dir)
+        elif dataset_type == 'imagenet-1k':
+            print("Using ImageNet-1K dataset")
+            imagenet_data_dir = os.path.join(args.data, 'imagenet-1k')
+            # Check if dataset exists, if not download from HuggingFace
+            if not (os.path.exists(os.path.join(imagenet_data_dir, 'train')) and os.path.exists(os.path.join(imagenet_data_dir, 'val'))):
+                print("ImageNet-1K dataset not found locally, downloading from HuggingFace...")
+                args.data = download_imagenet_1k(imagenet_data_dir)
+            else:
+                print(f"ImageNet-1K dataset found at {imagenet_data_dir}")
+                args.data = imagenet_data_dir
+        else:
+            raise ValueError(f"Unknown dataset type: {dataset_type}")
+    
+    # Store dataset type for later use
+    args.dataset_type = dataset_type
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -193,29 +313,38 @@ def main_worker(gpu, ngpus_per_node, args, ast):
                                 world_size=args.world_size, rank=args.node_rank)
 
     # create model
-    if args.pretrained:
-        print("=> using pre-trained model '{}'".format(args.arch))
-        model = models.__dict__[args.arch](pretrained=True)
+    print("=> creating ViT-B/32 model from scratch")
+    
+    # Use torchvision's ViT implementation
+    from torchvision.models import vit_b_32
+    
+    model = vit_b_32(weights=None)  # Train from scratch
+    
+    # Determine number of classes based on dataset
+    if args.dataset_type == 'tiny-imagenet':
+        num_classes = 200
+        print(f"=> Configuring model for Tiny ImageNet ({num_classes} classes)")
+    elif args.dataset_type == 'imagenet-1k':
+        num_classes = 1000
+        print(f"=> Configuring model for ImageNet-1K ({num_classes} classes)")
     else:
-        print("=> creating model '{}'".format(args.arch))
-        model = models.__dict__[args.arch]()
-
-    REPLACE_ALL = True
-    # Replace linear layers in the classifier
-    if hasattr(model, 'classifier'):
-        cnt = 0
-        for i, layer in enumerate(model.classifier):
-            
-            if isinstance(layer, nn.Linear):
-
-                cnt += 1
-                if cnt == 2:
-                    print(f"  Replacing classifier[{i}] (in: {layer.in_features}, out: {layer.out_features})")
-                    model.classifier[i] = ast.build(layer)
-                    if not REPLACE_ALL:
-                        break
+        raise ValueError(f"Unknown dataset type: {args.dataset_type}")
+    
+    # Modify the classifier head
+    model.heads.head = nn.Linear(model.heads.head.in_features, num_classes)
+    
+    # Apply LoRA to the transformer blocks
+    if args.replace_layers:
+        replace_layers = [int(i) for i in args.replace_layers.split(',')]
     else:
-        raise ValueError(f"Model {args.arch} has no classifier")
+        replace_layers = []
+
+    for i, block in enumerate([block for block in model.encoder.layers if hasattr(block, 'mlp')]):        
+        # Apply LoRA to MLP layers
+        if i in replace_layers or replace_layers == []:  # First linear layer in MLP
+            print(f"  Replacing MLP layer {i} with LoRA")
+            block.mlp[0] = ast.build(block.mlp[0])
+            block.mlp[3] = ast.build(block.mlp[3])
 
     if not use_accel:
         print('using CPU, this will be slow')
@@ -239,25 +368,13 @@ def main_worker(gpu, ngpus_per_node, args, ast):
                 # available GPUs if device_ids are not set
                 model = torch.nn.parallel.DistributedDataParallel(model)
     elif device.type == 'cuda':
-        # DataParallel will divide and allocate batch_size to all available GPUs
-        if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
-            if args.gpu is not None:
-                # Set the specific GPU and move model to it
-                torch.cuda.set_device(args.gpu)
-                model.cuda(args.gpu)
-                # For VGG/AlexNet, wrap features in DataParallel with specific device
-                model.features = torch.nn.DataParallel(model.features, device_ids=[args.gpu])
-            else:
-                model.features = torch.nn.DataParallel(model.features)
-                model.cuda()
+        # For ViT models, use standard DataParallel
+        if args.gpu is not None:
+            torch.cuda.set_device(args.gpu)
+            model.cuda(args.gpu)
+            model = torch.nn.DataParallel(model, device_ids=[args.gpu])
         else:
-            if args.gpu is not None:
-                # Set the specific GPU and move model to it
-                torch.cuda.set_device(args.gpu)
-                model.cuda(args.gpu)
-                model = torch.nn.DataParallel(model, device_ids=[args.gpu])
-            else:
-                model = torch.nn.DataParallel(model).cuda()
+            model = torch.nn.DataParallel(model).cuda()
     else:
         model.to(device)
 
@@ -265,12 +382,14 @@ def main_worker(gpu, ngpus_per_node, args, ast):
     # define loss function (criterion), optimizer, and learning rate scheduler
     criterion = nn.CrossEntropyLoss().to(device)
 
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
+    # Use AdamW optimizer for ViT with weight decay
+    optimizer = torch.optim.AdamW(model.parameters(), 
+                                 lr=args.lr,
+                                 weight_decay=args.weight_decay,
+                                 betas=(0.9, 0.999))
     
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
+    # Use Cosine Annealing scheduler for ViT
+    scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-6)
     
     # optionally resume from a checkpoint
     if args.resume:
@@ -299,31 +418,53 @@ def main_worker(gpu, ngpus_per_node, args, ast):
     # Data loading code
     if args.dummy:
         print("=> Dummy data is used!")
-        train_dataset = datasets.FakeData(1281167, (3, 224, 224), 1000, transforms.ToTensor())
-        val_dataset = datasets.FakeData(50000, (3, 224, 224), 1000, transforms.ToTensor())
+        # Use appropriate number of classes for dummy data
+        dummy_classes = 200 if args.dataset_type == 'tiny-imagenet' else 1000
+        train_dataset = datasets.FakeData(1281167, (3, 224, 224), dummy_classes, transforms.ToTensor())
+        val_dataset = datasets.FakeData(50000, (3, 224, 224), dummy_classes, transforms.ToTensor())
     else:
         traindir = os.path.join(args.data, 'train')
         valdir = os.path.join(args.data, 'val')
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
-        train_dataset = datasets.ImageFolder(
-            traindir,
-            transforms.Compose([
-                transforms.RandomResizedCrop(224),
-                transforms.RandomHorizontalFlip(),
+        # Configure data augmentation based on dataset type
+        if args.dataset_type == 'tiny-imagenet':
+            print("=> Using Tiny ImageNet data transforms")
+            # Enhanced data augmentation for ViT training on Tiny ImageNet
+            train_transform = transforms.Compose([
+                transforms.Resize(256),  # Resize first since Tiny ImageNet is 64x64
+                transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+                transforms.RandomRotation(degrees=15),
                 transforms.ToTensor(),
                 normalize,
-            ]))
+            ])
+        elif args.dataset_type == 'imagenet-1k':
+            print("=> Using ImageNet-1K data transforms")
+            # Enhanced data augmentation for ViT training on ImageNet-1K
+            train_transform = transforms.Compose([
+                transforms.RandomResizedCrop(224, scale=(0.2, 1.0)),
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
+                transforms.RandomRotation(degrees=10),
+                transforms.ToTensor(),
+                normalize,
+            ])
+        else:
+            raise ValueError(f"Unknown dataset type: {args.dataset_type}")
+        
+        # Validation transforms are the same for both datasets
+        val_transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize,
+        ])
 
-        val_dataset = datasets.ImageFolder(
-            valdir,
-            transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                normalize,
-            ]))
+        train_dataset = datasets.ImageFolder(traindir, train_transform)
+        val_dataset = datasets.ImageFolder(valdir, val_transform)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
