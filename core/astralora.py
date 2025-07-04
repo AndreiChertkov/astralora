@@ -15,20 +15,21 @@ from .utils import save_args_to_markdown
 
 
 class Astralora:
-    def __init__(self, task, with_neptune=True):
+    def __init__(self, task, with_neptune=False, master_process=True):
         self.args, args_parser = config(task)
         self.args = modify_gpu_args_for_cryri(self.args)
 
         init_seed(self.args.seed)
-        init_path(self.args.name, self.args.root, self.args.rewrite)
+        if master_process:
+            init_path(self.args.name, self.args.root, self.args.rewrite)
         self.args.folder = os.path.join(self.args.root, self.args.name)
 
         fpath = os.path.join(self.args.folder, 'log.txt')
-        self.log = init_log(fpath=fpath)
+        self.log = init_log(fpath=fpath, enable=master_process)
 
         self.device = torch.device(f'cuda:{self.args.device}')
 
-        if with_neptune:
+        if with_neptune and master_process:
             self.nepman, self.nepman_url = init_neptune(
                 self.args.name, 'set_neptune_env.sh', self.args)
             self.log('Use neptune. See: ' + self.url, 'res')
@@ -36,7 +37,8 @@ class Astralora:
             self.nepman = None
             self.nepman_url = ''
 
-        save_args_to_markdown(self.args, args_parser, self.path('args.md'))
+        if master_process:
+            save_args_to_markdown(self.args, args_parser, self.path('args.md'))
 
         self.losses_trn = []
         self.losses_tst = []
@@ -71,14 +73,13 @@ class Astralora:
         
         raise NotImplementedError
 
-    def done(self, model):
+    def done(self, model=None):
         if model is not None:
             self.save(model)
         else:
             self.log('No model to save')
         self.plot()
         
-
     def path(self, fpath):
         return os.path.join(self.args.folder, fpath)
 

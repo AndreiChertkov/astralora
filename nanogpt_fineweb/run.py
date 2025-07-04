@@ -31,14 +31,19 @@ def run():
     master_process = (ddp_rank == 0)
     
     # TODO: add support for multi-gpu (if master_process)
-    ast = Astralora('nanogpt_fineweb', with_neptune=False)
+    ast = Astralora('nanogpt_fineweb', master_process=master_process)
     args = ast.args
 
     # --- Init device:
-    # assert torch.cuda.is_available(), 'It works only with cuda'
-    # gpu_num = int(args.gpus.replace(' ', '').split(',')[ddp_local_rank])
-    torch.cuda.set_device(ast.device)
-
+    assert torch.cuda.is_available(), 'It works only with cuda'
+    
+    if args.device_total > 1:
+        gpu_num = ddp_local_rank
+        torch.cuda.set_device(f'cuda:{gpu_num}')
+    else:
+        gpu_num = ast.device
+        torch.cuda.set_device(ast.device)
+        
     # --- Calculate the number of steps to take in the validation loop:
     B = args.batch_size
     T = args.sequence_length
@@ -69,7 +74,10 @@ def run():
     model = torch.compile(model)
     
     # --- Wrap model into DDP container:
-    model = DDP(model) #, device_ids=[gpu_num])
+    if args.device_total > 1:
+        model = DDP(model, device_ids=[gpu_num])
+    else:
+        model = DDP(model)
     model_raw = model.module # Always contains the unwrapped model
     ctx = torch.amp.autocast(device_type='cuda', dtype=torch.float32)
 
@@ -197,7 +205,8 @@ def run():
         if last_step:
             break
 
-    ast.done(model)
+    if master_process:
+        ast.done(model)
 
     dist.destroy_process_group()
 

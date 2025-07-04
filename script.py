@@ -50,6 +50,7 @@ def get_text_ssh():
         set -e
         conda create --name astralora python=3.10 -y
         source $(conda info --base)/etc/profile.d/conda.sh
+        source set_neptune_env.sh
         conda activate astralora
         conda install -c conda-forge conda-ecosystem-user-package-isolation -y
         pip install -e . --cache-dir cache
@@ -84,7 +85,7 @@ def script():
     args_str = args_to_str(sys.argv[1:])
 
     if args.torchrun:
-        runner = 'torchrun --standalone --nproc_per_node=1'
+        runner = f'torchrun --standalone --nproc_per_node={args.device_num}'
     else:
         runner = 'python'
 
@@ -110,6 +111,8 @@ def script():
     # GPU configuration
     if args.device_num == 1:
         gpu = 'a100plus.1gpu.80vG.12C.96G'
+    elif args.device_num == 2:
+        gpu = 'a100plus.2gpu.80vG.24C.192G'
     elif args.device_num == 4:
         gpu = 'a100plus.4gpu.80vG.48C.728G'
     elif args.device_num == 8:

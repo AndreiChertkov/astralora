@@ -194,6 +194,11 @@ def _config_ecapa_urbansound8k(task, parser):
 
 
 def _config_nanogpt_fineweb(task, parser):
+    parser.add_argument('--device_total',
+        type=int,
+        help='Number of required GPU devices to use',
+        default=1)
+
     parser.add_argument('--batch_size',
         type=int,
         help='Batch size (per device)',
@@ -271,8 +276,8 @@ def _config_nanogpt_fineweb(task, parser):
         type=float,
         default=0.01)
 
+
 def _config_vgg19_tiny_imagenet(task, parser):
-    
     parser.add_argument('data', metavar='DIR', nargs='?', default='vgg19_tiny/data',
                     help='path to dataset (default: vgg19_tiny/data)')
     parser.add_argument('-a', '--arch', metavar='ARCH', default='vgg19',

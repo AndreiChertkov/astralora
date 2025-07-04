@@ -22,6 +22,7 @@ setup(
         "transformers",
         "tensorboard",
         "scikit-learn",
-        "speechbrain"
+        "speechbrain",
+        "pillow"
     ],
 ) 
