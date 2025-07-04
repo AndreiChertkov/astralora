@@ -162,7 +162,7 @@ def _config_base(task, parser):
         help='Do we auto-save model after train',
         nargs='?',
         const=True,
-        default=True)
+        default=False)
 
     parser.add_argument('--rewrite',
         type=lambda x: bool(strtobool(x)),
