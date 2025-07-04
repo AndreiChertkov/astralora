@@ -131,7 +131,7 @@ class Astralora:
         if epoch is not None:
             text += f'# {epoch+1:-5d} | '
         else:
-            text += f'ITER  | '
+            text += f'ITER    | '
         
         if loss_trn is not None and loss_tst is not None:
             text += f'L > trn: {loss_trn:-8.2e}, tst: {loss_tst:-8.2e}'

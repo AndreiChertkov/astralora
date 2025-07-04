@@ -21,6 +21,7 @@ from sklearn.metrics import confusion_matrix
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 import sys
+from time import perf_counter as tpc
 import torch
 import torch.nn as nn
 import torchaudio
@@ -53,6 +54,10 @@ class CustomLayerWrapper(nn.Module):
 
 class UrbanSound8kBrain(sb.core.Brain):
     """Class for sound class embedding training"""
+    def __init__(self, ast, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ast = ast
+        self.t_start = tpc()
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -204,6 +209,7 @@ class UrbanSound8kBrain(sb.core.Brain):
                     "average"
                 ),  # "acc": self.train_acc_metric.summarize(),
             }
+
         # Summarize Valid statistics from the stage for record-keeping.
         elif stage == sb.Stage.VALID:
             valid_stats = {
@@ -213,6 +219,12 @@ class UrbanSound8kBrain(sb.core.Brain):
                 ),  # "acc": self.valid_acc_metric.summarize(),
                 "error": self.error_metrics.summarize("average"),
             }
+            self.ast.step(
+                epoch=epoch-1,
+                loss_tst=stage_loss,
+                acc_tst=valid_stats["acc"],
+                t=tpc()-self.t_start)
+
         # Summarize Test statistics from the stage for record-keeping.
         else:
             test_stats = {
@@ -222,6 +234,11 @@ class UrbanSound8kBrain(sb.core.Brain):
                 ),  # "acc": self.test_acc_metric.summarize(),
                 "error": self.error_metrics.summarize("average"),
             }
+            self.ast.step(
+                epoch=epoch,
+                loss_tst=stage_loss,
+                acc_tst=test_stats["acc"],
+                t=tpc()-self.t_start)
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -375,7 +392,8 @@ def run(task='ecapa_urbansound8k'):
     fpath = task + '/config.yaml'
     with open(fpath, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, {
-            "output_folder": folder + '/urban_sound'})
+            "output_folder": folder + '/urban_sound',
+            "number_of_epochs": ast.args.epochs})
 
     sb.create_experiment_directory(
         experiment_directory=folder,
@@ -412,6 +430,7 @@ def run(task='ecapa_urbansound8k'):
     class_labels = list(label_encoder.ind2lab.values())
 
     model = UrbanSound8kBrain(
+        ast=ast,
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
