@@ -210,7 +210,7 @@ def _config_nanogpt_fineweb(task, parser):
     parser.add_argument('--accumulation_steps',
         type=int,
         help='Number of accumulation steps while train',
-        default=1)
+        default=20)
 
     parser.add_argument('--sequence_length',
         type=int,
