@@ -1,30 +1,11 @@
 import math
-import numpy as np
 import torch
 
 
-from .layer_mzi import create_mzi_linear
-from .layer_mrr import create_mrr_linear
-
-
-def bb_appr(*args, **kwargs):
+def approximation(*args, **kwargs):
+    # TODO: note that we always use SVD:
     return bb_appr_w_svd(*args, **kwargs)
 
-
-def bb_appr_w_svd(bb, d_inp, d_out, w, rank=10, log=print, nepman=None):
-    device = w.device
-
-    E = torch.eye(d_inp, device=device)
-    A = bb(E, w).t()
-    
-    U, S, V = torch.linalg.svd(A, full_matrices=False)
-    
-    U = U[:, :rank]
-    S = torch.diag(S[:rank])
-    V = V[:rank, :]
-    
-    return U, S, V
-    
 
 def bb_appr_w_als(bb, d_inp, d_out, w, rank=10, log=print, nepman=None, 
                   n_samples=1000, lr=0.01, max_iter=50):
@@ -84,52 +65,20 @@ def bb_appr_w_als(bb, d_inp, d_out, w, rank=10, log=print, nepman=None,
     return U_q, S, V_q
 
 
-def bb_build(d_inp, d_out, d, kind='matvec'):
-    if kind == 'matvec':
-        assert d_inp * d_out == d
+def bb_appr_w_svd(bb, d_inp, d_out, w, rank=10, log=print, nepman=None):
+    device = w.device
+
+    E = torch.eye(d_inp, device=device)
+    A = bb(E, w).t()
     
-        def bb(x, w):
-            A = w.reshape(d_out, d_inp)
-            return x @ A.T
-
-        w = torch.empty((d_out, d_inp))
-        torch.nn.init.kaiming_uniform_(w, a=math.sqrt(5))
-        w = w.reshape(-1)
-
-    elif kind == 'slm':
-        assert d_inp * d_out == d
-
-        def bb(x, w):
-            x = x.to(torch.cfloat)
-            w = w.view(d_out, d_inp)
-            w = torch.exp(1j * w)
-            y = torch.einsum("ij, ...j -> ...i", w, x)
-            y = y / torch.sqrt(torch.tensor(d_inp, dtype=torch.cfloat))
-            return torch.real(y)
-
-        w = torch.empty((d_out, d_inp))
-        torch.nn.init.kaiming_uniform_(w, a=math.sqrt(5))
-        w = w.reshape(-1)
-
-    elif kind == 'id':
-        def bb(x, w):
-            return x
-
-        w = torch.Tensor([])
-
-    elif kind == 'mrr':
-        bb, w = create_mrr_linear(d_inp, d_out)
-
-    elif kind == 'mzi':
-        bb, w = create_mzi_linear(d_inp, d_out)
-
-    else:
-        raise NotImplementedError
+    U, S, V = torch.linalg.svd(A, full_matrices=False)
     
-    return bb, w
-
-
-
+    U = U[:, :rank]
+    S = torch.diag(S[:rank])
+    V = V[:rank, :]
+    
+    return U, S, V
+    
 
 class MatrixFactorizationALS:
     """

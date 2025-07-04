@@ -100,8 +100,8 @@ def plot(base_dir="result", fpath_plot="result.png"):
 
 
 if __name__ == '__main__':
-    plot(base_dir="result",
-        fpath_plot="airbench_cifar_result.png")
+    plot(base_dir="result_matvec",
+        fpath_plot="_plot/airbench_cifar_result_matvec.png")
     
-    plot(base_dir="result_fixed", 
-        fpath_plot="airbench_cifar_result_samples_bb_1000.png")
+    plot(base_dir="result_matvec_fixed", 
+        fpath_plot="_plot/airbench_cifar_result_matvec_samples_bb_1000.png")

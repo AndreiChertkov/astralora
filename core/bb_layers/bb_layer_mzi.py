@@ -1,12 +1,14 @@
-# code taken from https://github.com/JeremieMelo/pytorch-onn/blob/main/torchonn/layers/mzi_linear.py
+"""bb_layer_mzi.
 
+Code taken from https://github.com/JeremieMelo/pytorch-onn/blob/main/torchonn/layers/mzi_linear.py
+
+"""
 import numpy as np
 import torch
 from torch import Tensor
 
 
-def create_mzi_linear(d_inp, d_out):
-
+def create_bb_layer_mzi(d_inp, d_out):
     v_max = 10.8
     v_pi = 4.36
     gamma = np.pi / v_pi**2
@@ -25,6 +27,3 @@ def create_mzi_linear(d_inp, d_out):
     w = build_parameters()
     
     return bb, w
-
-
-

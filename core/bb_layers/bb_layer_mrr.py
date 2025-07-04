@@ -1,14 +1,15 @@
-# code taken from https://github.com/JeremieMelo/pytorch-onn/blob/main/torchonn/layers/mrr_linear.py
+"""bb_layer_mrr.
 
+Code taken from https://github.com/JeremieMelo/pytorch-onn/blob/main/torchonn/layers/mrr_linear.py
 
+"""
 import math
 import numpy as np
 import torch
 from torch import Tensor
 
 
-def create_mrr_linear(d_inp, d_out):
-
+def create_bb_layer_mrr(d_inp, d_out):
     v_max = 10.8
     v_pi = 4.36
     gamma = np.pi / v_pi**2
@@ -59,4 +60,3 @@ def mrr_roundtrip_phase_to_tr(
         # as long as a is not equal to r, t cannot be 0.
         t = t.sqrt()
     return t
-

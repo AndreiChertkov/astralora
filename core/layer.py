@@ -3,10 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-from .backprop import backprop_wrap
-from .blackbox import bb_appr
-from .blackbox import bb_build
-from .psi import psi_implicit
+from .helpers.approximation import approximation
+from .helpers.backprop import backprop_wrap
+from .helpers.psi import psi_implicit
+from .bb_layers.bb_layer_id import create_bb_layer_id
+from .bb_layers.bb_layer_matvec import create_bb_layer_matvec
+from .bb_layers.bb_layer_mrr import create_bb_layer_mrr
+from .bb_layers.bb_layer_mzi import create_bb_layer_mzi
+from .bb_layers.bb_layer_slm import create_bb_layer_slm
 
 
 class AstraloraLayer(nn.Module):
@@ -36,7 +40,18 @@ class AstraloraLayer(nn.Module):
 
         self.log('... Init Astralora layer : \n     ' + self.extra_repr())
 
-        self.bb, w = bb_build(self.d_inp, self.d_out, self.d, self.kind)
+        if self.kind == 'id':
+            self.bb, w = create_bb_layer_id(self.d_inp, self.d_out)
+        elif self.kind == 'matvec':
+            self.bb, w = create_bb_layer_matvec(self.d_inp, self.d_out)
+        elif self.kind == 'mrr':
+            self.bb, w = create_bb_layer_mrr(self.d_inp, self.d_out)
+        elif self.kind == 'mzi':
+            self.bb, w = create_bb_layer_mzi(self.d_inp, self.d_out)
+        elif self.kind == 'slm':
+            self.bb, w = create_bb_layer_slm(self.d_inp, self.d_out)
+        else:
+            raise NotImplementedError
         self.w = nn.Parameter(w)
         self.w_old = None
 
@@ -85,7 +100,7 @@ class AstraloraLayer(nn.Module):
         self.generator.manual_seed(42)
 
         if self.use_sm:
-            U, S, V = bb_appr(self.bb, self.d_inp, self.d_out,
+            U, S, V = approximation(self.bb, self.d_inp, self.d_out,
                 self.w.data.clone(), self.rank, self.log, self.nepman)
             self.register_buffer('U', U)
             self.register_buffer('S', S)
