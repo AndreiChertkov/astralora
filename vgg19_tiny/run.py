@@ -8,19 +8,22 @@ Key features:
 - AdamW optimizer with cosine annealing scheduler
 - Dataset-specific data augmentation optimized for each dataset type
 - Automatic dataset switching with --dataset argument
-- Automatic dataset download (Tiny ImageNet from web, ImageNet-1K from HuggingFace)
+- Automatic dataset download for Tiny ImageNet from web
 - Supports both ImageNet-1K and Tiny ImageNet datasets
 
 Requirements for ImageNet-1K:
   pip install datasets pillow
   
-Note: ImageNet-1K download from HuggingFace (ILSVRC/imagenet-1k) may require:
-- HuggingFace account with access to the dataset
+Note: ImageNet-1K must be downloaded separately using download_1k.py:
+- Requires HuggingFace account with access to the dataset
 - Authentication via huggingface-hub login
 
 Usage:
   python run.py --dataset tiny-imagenet    # Train on Tiny ImageNet (default)
-  python run.py --dataset imagenet-1k     # Train on ImageNet-1K (downloads automatically)
+  python run.py --dataset imagenet-1k     # Train on ImageNet-1K (requires pre-downloaded dataset)
+  
+To download ImageNet-1K:
+  python download_1k.py --data_dir imagenet-1k
 """
 
 import argparse
@@ -52,75 +55,26 @@ from torch.utils.data import Subset
 from core.astralora import Astralora
 
 
-def download_imagenet_1k(data_dir='imagenet-1k'):
+def check_imagenet_1k_exists(data_dir):
     """
-    Download and prepare ImageNet-1K dataset using HuggingFace datasets.
+    Check if ImageNet-1K dataset exists in the specified directory.
+    
+    Args:
+        data_dir (str): Directory to check for ImageNet-1K dataset
+        
+    Raises:
+        FileNotFoundError: If the dataset doesn't exist
     """
-    try:
-        from datasets import load_dataset
-        from PIL import Image
-    except ImportError:
-        raise ImportError("Please install datasets and PIL: pip install datasets pillow")
+    train_dir = os.path.join(data_dir, 'train')
+    val_dir = os.path.join(data_dir, 'val')
     
-    if os.path.exists(os.path.join(data_dir, 'train')) and os.path.exists(os.path.join(data_dir, 'val')):
-        print(f"ImageNet-1K dataset already exists in {data_dir}")
-        return data_dir
+    if not os.path.exists(train_dir) or not os.path.exists(val_dir):
+        raise FileNotFoundError(
+            f"ImageNet-1K dataset not found in {data_dir}. "
+            f"Please download it first using: python download_1k.py --data_dir {data_dir}"
+        )
     
-    print("Downloading ImageNet-1K dataset from HuggingFace...")
-    print("This may take a while as ImageNet-1K is a large dataset...")
-    
-    # Create data directory
-    os.makedirs(data_dir, exist_ok=True)
-    
-    try:
-        # Load dataset from HuggingFace
-        print("Loading dataset from ILSVRC/imagenet-1k...")
-        dataset = load_dataset("ILSVRC/imagenet-1k", cache_dir=os.path.join(data_dir, 'cache'), trust_remote_code=True)
-        
-        # Create train and val directories
-        train_dir = os.path.join(data_dir, "train")
-        val_dir = os.path.join(data_dir, "val")
-        os.makedirs(train_dir, exist_ok=True)
-        os.makedirs(val_dir, exist_ok=True)
-        
-        def save_split(split_name, split_data, output_dir):
-            print(f"Processing {split_name} split...")
-            class_dirs = {}
-            
-            for idx, example in enumerate(tqdm(split_data, desc=f"Saving {split_name}")):
-                label = example['label']
-                image = example['image']
-                
-                # Create class directory if it doesn't exist
-                if label not in class_dirs:
-                    class_dir = os.path.join(output_dir, str(label).zfill(4))  # Zero-pad to 4 digits
-                    os.makedirs(class_dir, exist_ok=True)
-                    class_dirs[label] = class_dir
-                
-                # Save image
-                image_path = os.path.join(class_dirs[label], f"{idx:08d}.JPEG")
-                if isinstance(image, Image.Image):
-                    image.save(image_path, "JPEG")
-                else:
-                    # Handle case where image might be in different format
-                    Image.fromarray(image).save(image_path, "JPEG")
-        
-        # Save training split
-        save_split("train", dataset["train"], train_dir)
-        
-        # Save validation split  
-        save_split("validation", dataset["validation"], val_dir)
-        
-        print(f"ImageNet-1K dataset prepared in {data_dir}")
-        print(f"Train samples: {len(dataset['train'])}")
-        print(f"Validation samples: {len(dataset['validation'])}")
-        
-    except Exception as e:
-        print(f"Error downloading ImageNet-1K: {e}")
-        print("Please make sure you have access to the ILSVRC/imagenet-1k dataset on HuggingFace.")
-        print("You may need to request access or provide authentication.")
-        raise
-    
+    print(f"ImageNet-1K dataset found at {data_dir}")
     return data_dir
 
 
@@ -228,13 +182,8 @@ def main():
         elif dataset_type == 'imagenet-1k':
             print("Using ImageNet-1K dataset")
             imagenet_data_dir = os.path.join(args.data, 'imagenet-1k')
-            # Check if dataset exists, if not download from HuggingFace
-            if not (os.path.exists(os.path.join(imagenet_data_dir, 'train')) and os.path.exists(os.path.join(imagenet_data_dir, 'val'))):
-                print("ImageNet-1K dataset not found locally, downloading from HuggingFace...")
-                args.data = download_imagenet_1k(imagenet_data_dir)
-            else:
-                print(f"ImageNet-1K dataset found at {imagenet_data_dir}")
-                args.data = imagenet_data_dir
+            # Check if dataset exists, raise error if not
+            args.data = check_imagenet_1k_exists(imagenet_data_dir)
         else:
             raise ValueError(f"Unknown dataset type: {dataset_type}")
     
