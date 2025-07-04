@@ -3,6 +3,7 @@ import numpy as np
 import torch
 
 
+from .layer_mzi import create_mzi_linear
 from .layer_mrr import create_mrr_linear
 
 
@@ -120,7 +121,7 @@ def bb_build(d_inp, d_out, d, kind='matvec'):
         bb, w = create_mrr_linear(d_inp, d_out)
 
     elif kind == 'mzi':
-        raise NotImplementedError
+        bb, w = create_mzi_linear(d_inp, d_out)
 
     else:
         raise NotImplementedError
