@@ -17,7 +17,7 @@ from .layer import AstraloraLayer
 class Astralora:
     def __init__(self, task, with_neptune=False, master_process=True):
         self.args, args_parser = config(task)
-        self.args = modify_gpu_args_for_cryri(self.args)
+        #self.args = modify_gpu_args_for_cryri(self.args)
 
         init_seed(self.args.seed)
         

@@ -14,9 +14,9 @@ def autorun(task, kind):
     
 
 def autorun_airbench_cifar(task, kind):
-    seeds = [1] #, 2, 3, 4, 5]
-    ranks = [1] #, 3, 5, 7, 10, 50, 100]
-    samples = [1] #, 10, 100, 1000]
+    seeds = [1, 2, 3, 4, 5]
+    ranks = [1, 3, 5, 7, 10, 50, 100]
+    samples = [1, 10, 100, 1000]
 
     args = SimpleNamespace(**{
         'task': task,
