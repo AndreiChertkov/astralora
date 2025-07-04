@@ -72,7 +72,7 @@ class Astralora:
         raise NotImplementedError
 
     def done(self, model):
-        if self.model:
+        if model is not None:
             self.save(model)
         else:
             self.log('No model to save')

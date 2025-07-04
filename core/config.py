@@ -273,10 +273,10 @@ def _config_nanogpt_fineweb(task, parser):
 
 def _config_vgg19_tiny_imagenet(task, parser):
     
-    parser.add_argument('data', metavar='DIR', nargs='?', default='vgg19_tiny/tiny-imagenet',
-                    help='path to dataset (default: tiny-imagenet)')
+    parser.add_argument('data', metavar='DIR', nargs='?', default='vgg19_tiny/data',
+                    help='path to dataset (default: vgg19_tiny/data)')
     parser.add_argument('-a', '--arch', metavar='ARCH', default='vgg19',
-                        choices=['vgg19'], help='vgg19')
+                        choices=['vgg19', "vit_b_32"], help='vgg19')
     parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                         help='number of data loading workers (default: 8)')
     parser.add_argument('--epochs', default=200, type=int, metavar='N',
@@ -323,3 +323,10 @@ def _config_vgg19_tiny_imagenet(task, parser):
                             'fastest way to use PyTorch for either single node or '
                             'multi node data parallel training')
     parser.add_argument('--dummy', action='store_true', help="use fake data to benchmark")
+
+    parser.add_argument('--replace-layers', type=str, default='',
+                        help='comma separated list of layer indices to replace with LoRA')
+    
+    parser.add_argument('--dataset', type=str, default='tiny-imagenet',
+                        choices=['tiny-imagenet', 'imagenet-1k'],
+                        help='Dataset to use: tiny-imagenet or imagenet-1k (default: tiny-imagenet)')
