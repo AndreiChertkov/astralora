@@ -121,7 +121,7 @@ def _config_base(task, parser):
         help='Kind of the model',
         choices=[
             'digital',
-            'bb'
+            'bb',
         ],
         default='digital')
 
@@ -147,7 +147,7 @@ def _config_base(task, parser):
             "matvec",                # Simple linear-like layer
             "slm",                   # SLM layer
             "id",                    # Identity layer
-            "morr",                  # MRR layer from torch-onn,
+            "mrr",                   # MRR layer from torch-onn,
             "mzi",                   # MZI layer from torch-onn
         ],
         default="matvec")

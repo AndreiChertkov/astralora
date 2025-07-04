@@ -3,6 +3,9 @@ import numpy as np
 import torch
 
 
+from .layer_mrr import create_mrr_linear
+
+
 def bb_appr(*args, **kwargs):
     return bb_appr_w_svd(*args, **kwargs)
 
