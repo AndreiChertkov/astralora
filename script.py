@@ -1,4 +1,12 @@
-from distutils.util import strtobool
+"""Script to perform computation on our cluster.
+
+Run it as:
+
+- "python script.py --task TASK_NAME ...ARS_TO_RUN_THE_SCRIPT..."
+
+You can provide the number of required devices (1, 2, 4, or 8) by "device_num" arg, and if you set "torchrun 1" then code will be runned by "torchrun" command.
+
+"""
 import os
 import random
 import string
@@ -10,6 +18,9 @@ import time
 from core.config import config
 
 
+TASKS = ['airbench_cifar', 'cnn_cifar', 'ecapa_urbansound8k',  'nanogpt_fineweb', 'vgg19_tiny']
+
+
 ARGS_OWN = {
     'device_num': {
         'type': int,
@@ -17,12 +28,11 @@ ARGS_OWN = {
         'default': 1},
     'task': {
         'type': str,
-        'choices': ['airbench_cifar', 'cnn_cifar', 'ecapa_urbansound8k', 'nanogpt_fineweb', 'vgg19_tiny'],
-        'help': 'Name of the task (model / data) to solve',
-        'default': 'cnn_cifar'},
+        'choices': TASKS,
+        'help': 'Name of the task (model / data) to solve [it is argument only for "script.py", not for "run.py"]'},
     'torchrun': {
         'type': int,
-        'help': 'Do we use torchrun to run the script (=1)',
+        'help': 'Do we use "torchrun" to run the script (if =1) [it is argument only for "script.py", not for "run.py"]',
         'default': 0}}
 
 
@@ -41,7 +51,7 @@ def args_to_str(args):
             new_args.append(args[i])
             i += 1
 
-    return ' '.join(new_args)
+    return (' '.join(new_args)).strip()
 
 
 def get_text_ssh():
@@ -89,7 +99,7 @@ def script():
     else:
         runner = 'python'
 
-    script_command = f'{runner} {args.task}/run.py {args_str}'.strip()
+    script_command = f'{runner} {args.task}/run.py {args_str}'
 
     os.makedirs('_tmp', exist_ok=True)
     name_ssh = ''.join(random.choices(string.ascii_uppercase, k=25))
@@ -97,9 +107,10 @@ def script():
     text_ssh = get_text_ssh().replace('    ', '')
     text_ssh = text_ssh.replace('SCRIPT_COMMAND_PLACEHOLDER', script_command)
 
-    # print(fpath_ssh)
-    # print(text_ssh)
-    # raise ValueError('stop')
+    if False: # For debug:
+        print(fpath_ssh)
+        print(text_ssh)
+        raise ValueError('stop')
 
     with open(fpath_ssh, 'w') as f:
         f.write(text_ssh)
@@ -146,28 +157,6 @@ def script():
 
     # os.remove(fpath_ssh)
     os.remove(fpath_yaml)
-
-
-def _unused_parse_args_with_separator():
-    """Parse arguments, separating cryri args from custom command using '--' separator"""
-    if '--' in sys.argv:
-        separator_index = sys.argv.index('--')
-        cryri_args = sys.argv[1:separator_index]
-        custom_command_parts = sys.argv[separator_index + 1:]
-    else:
-        cryri_args = sys.argv[1:]
-        custom_command_parts = []
-    
-    # Temporarily modify sys.argv for the config function
-    original_argv = sys.argv.copy()
-    sys.argv = [sys.argv[0]] + cryri_args
-    
-    try:
-        args, _ = config('TASK_PLACEHOLDER', ARGS_OWN)
-    finally:
-        sys.argv = original_argv
-    
-    return args, custom_command_parts
 
 
 if __name__ == '__main__':

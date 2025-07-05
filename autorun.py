@@ -1,3 +1,10 @@
+"""Script to perform multiple computations in automatic mode.
+
+Run it as:
+
+- "python autorun.py airbench_cifar matvec"
+
+"""
 import os
 import subprocess
 import sys
@@ -18,13 +25,8 @@ def autorun_airbench_cifar(task, kind):
     ranks = [1, 3, 5, 7, 10, 50, 100]
     samples = [1, 10, 100, 1000]
 
-    args = SimpleNamespace(**{
-        'task': task,
-        'root': f'{task}/result_{kind}',
-        'mode': None,
-        'seed': None,
-        'name': None,
-        'bb_kind': kind})
+    args = SimpleNamespace(**{'task': task, 'bb_kind': kind,
+        'root': f'{task}/result_{kind}'})
 
     for seed in seeds:
         args.seed = seed
@@ -60,10 +62,7 @@ def _args_to_command(args):
 
 def _check(args):
     fpath = f'{args.root}/{args.name}/result.npz'
-    if not os.path.isfile(fpath):
-        return True
-
-    return False
+    return not os.path.isfile(fpath)
 
 
 def _run(args):
