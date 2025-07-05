@@ -1,3 +1,14 @@
+"""Train the GPT2-like model on FineWeb datacet.
+
+See:
+- https://github.com/KellerJordan/modded-nanogpt
+- https://github.com/karpathy/nanoGPT
+
+Usage:
+1. Donwload data: "cd nanogpt_fineweb && python run_data.py"
+2. Run: "torchrun --standalone --nproc_per_node=1 nanogpt_fineweb/run.py"
+
+"""
 import os
 import time
 import torch
@@ -139,8 +150,8 @@ def run():
 
     # --- Training loop:
     loader_trn.reset()
-    for step in range(args.num_iterations + 1):
-        last_step = (step == args.num_iterations)
+    for step in range(args.num_iterations):
+        last_step = (step == args.num_iterations-1)
 
         if step == 10:
             # We do not count first 10 steps for timing, which are slow
@@ -149,7 +160,7 @@ def run():
         timed_steps = float('nan') if step <= 11 else (step - 10) + 1
 
         # --- Evaluate the validation dataset:
-        do_vld = args.vld_every > 0 and step % args.vld_every == 0
+        do_vld = args.vld_every > 0 and (step+1) % args.vld_every == 0
         do_vld = do_vld or last_step
         if do_vld:
             # Stop the clock:

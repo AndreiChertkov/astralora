@@ -6,11 +6,11 @@ See:
 - The paper `ECAPA-TDNN: Emphasized Channel Attention, Propagation and Aggregation in TDNN Based Speaker Verification`
 
 Usage:
-1. Donwload data: wget https://goo.gl/8hY5ER
-2. Unzip data: `tar -xvzf 8hY5ER` (it will be `UrbanSound8K` folder)
-3. Replace `data_folder: !PLACEHOLDER` to `data_folder: _data/UrbanSound8K` in `config.yaml` 
-4. Install: `pip install matplotlib tensorboard scikit-learn speechbrain`
-5. Run: `clear && python ecapa_urbansound8k/run.py --name test --device 1`
+1. Donwload data: "wget https://goo.gl/8hY5ER"
+2. Unzip data: "tar -xvzf 8hY5ER" (it will be "UrbanSound8K" folder)
+3. Replace "data_folder: !PLACEHOLDER" to "data_folder: _data/UrbanSound8K" in "config.yaml" 
+4. Install: "pip install matplotlib tensorboard scikit-learn speechbrain"
+5. Run: "clear && python ecapa_urbansound8k/run.py --name test --device 1"
 
 """
 from hyperpyyaml import load_hyperpyyaml
@@ -461,7 +461,7 @@ def run(task='ecapa_urbansound8k'):
         progressbar=True,
         test_loader_kwargs=hparams["dataloader_options"])
 
-    ast.done(model)
+    ast.done()
 
 
 if __name__ == "__main__":

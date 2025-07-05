@@ -60,12 +60,12 @@ def _config_astralora(task, parser):
     parser.add_argument('--samples_bb',
         type=int,
         help='Number of samples to train bb (its parameters). If =-1, then "exact" computation performed.',
-        default=100)
+        default=1000)
     
     parser.add_argument('--samples_sm',
         type=int,
         help='Number of samples to update surrogate model. If =-1, then "exact" computation performed.',
-        default=100)
+        default=1000)
 
     parser.add_argument('--use_gd_update',
         type=lambda x: bool(strtobool(x)),
@@ -76,7 +76,7 @@ def _config_astralora(task, parser):
     
     parser.add_argument('--gd_update_iters',
         type=int,
-        help='Number of iterations for gd-based naive update',
+        help='Number of iterations for gd-based naive update (it is only used if the flag "use_gd_update" is set)',
         default=1)
 
     parser.add_argument('--use_residual',
@@ -210,7 +210,7 @@ def _config_nanogpt_fineweb(task, parser):
     parser.add_argument('--accumulation_steps',
         type=int,
         help='Number of accumulation steps while train',
-        default=20)
+        default=20) # TODO: note this argument (it should be 20 if one device)
 
     parser.add_argument('--sequence_length',
         type=int,

@@ -17,8 +17,10 @@ from .layer import AstraloraLayer
 class Astralora:
     def __init__(self, task, with_neptune=False, master_process=True):
         self.args, args_parser = config(task)
-        #self.args = modify_gpu_args_for_cryri(self.args)
+        # self.args = modify_gpu_args_for_cryri(self.args)
 
+        # torch.backends.cudnn.benchmark = True
+        
         init_seed(self.args.seed)
         
         if master_process:
@@ -47,6 +49,8 @@ class Astralora:
         self.accs_trn = []
         self.accs_tst = []
 
+        self.times = []
+
     def build(self, layer):
         d_inp = layer.in_features
         d_out = layer.out_features
@@ -71,17 +75,15 @@ class Astralora:
         raise NotImplementedError
 
     def done(self, model=None):
-        if model is not None:
-            torch.save(model.state_dict(), self.path('model.pth'))
-        else:
-            self.log('Astralora.done: no model to save', 'wrn')
+        torch.save(model.state_dict(), self.path('model.pth'))
 
         np.savez_compressed(self.path('result.npz'), res={
             'args': self._args_to_dict(),
             'losses_trn': self.losses_trn,
             'losses_tst': self.losses_tst,
             'accs_trn': self.accs_trn,
-            'accs_tst': self.accs_tst})
+            'accs_tst': self.accs_tst,
+            'times': self.times})
 
         self.plot()
         
@@ -89,10 +91,12 @@ class Astralora:
         return os.path.join(self.args.folder, fpath)
 
     def plot(self):
-        if len(self.losses_trn) > 0 and len(self.losses_tst) > 0:        
+        if len(self.losses_trn) > 0 or len(self.losses_tst) > 0:        
             plt.figure(figsize=(6, 4))
-            plt.plot(self.losses_trn, label='Train Loss')
-            plt.plot(self.losses_tst, label='Test Loss')
+            if len(self.losses_trn) > 0:
+                plt.plot(self.losses_trn, label='Train Loss')
+            if len(self.losses_tst) > 0:
+                plt.plot(self.losses_tst, label='Test Loss')
             plt.xlabel('Epochs')
             plt.ylabel('Loss')
             plt.legend()
@@ -100,9 +104,12 @@ class Astralora:
             plt.tight_layout()
             plt.savefig(self.path('_plot_loss.png'))
 
-        if len(self.accs_trn) > 0 and len(self.accs_tst) > 0:
-            plt.plot(self.accs_trn, label='Train Accuracy')
-            plt.plot(self.accs_tst, label='Test Accuracy')
+        if len(self.accs_trn) > 0 or len(self.accs_tst) > 0:
+            plt.figure(figsize=(6, 4))
+            if len(self.accs_trn) > 0:
+                plt.plot(self.accs_trn * 100, label='Train Accuracy')
+            if len(self.accs_tst) > 0:
+                plt.plot(self.accs_tst * 100, label='Test Accuracy')
             plt.xlabel('Epochs')
             plt.ylabel('Accuracy (%)')
             plt.legend()
@@ -117,8 +124,12 @@ class Astralora:
         if loss_tst is not None:
             self.losses_tst.append(loss_tst)
         if acc_trn is not None:
+            if acc_trn > 1:
+                self.log('Accuracy (trn) should be <1', 'wrn')
             self.accs_trn.append(acc_trn)
         if acc_tst is not None:
+            if acc_tst > 1:
+                self.log('Accuracy (tst) should be <1', 'wrn')
             self.accs_tst.append(acc_tst)
 
         text = ''
@@ -136,11 +147,11 @@ class Astralora:
             text += f'L > tst: {loss_tst:-8.2e}'
 
         if acc_trn is not None and acc_tst is not None:
-            text += f' | A > trn: {acc_trn:-6.4f}, tst: {acc_tst:-6.4f}'
+            text += f' | A > trn: {acc_trn*100:-4.2f}, tst: {acc_tst*100:-4.2f}'
         elif acc_trn is not None:
-            text += f' | A > trn: {acc_trn:-6.4f}'
+            text += f' | A > trn: {acc_trn*100:-4.2f}'
         elif acc_tst is not None:
-            text += f' | A > tst: {acc_tst:-6.4f}'
+            text += f' | A > tst: {acc_tst*100:-4.2f}'
 
         if t is not None:
             text += f' | T: {t:-8.2e}'

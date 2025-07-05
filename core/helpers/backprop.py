@@ -28,8 +28,7 @@ def backprop_wrap(bb_func, generator, samples_x=1, samples_w=1,
 
             return grad_x, grad_w, None, None, None
 
-    func = FuncCustom.apply
-    return func
+    return FuncCustom.apply
 
 
 def _backprop_stochastic(bb_func, x, w, grad_output, generator,
@@ -56,9 +55,11 @@ def _backprop_stochastic(bb_func, x, w, grad_output, generator,
             y_new = bb_func(x, w + shift * u)
 
         p_new = torch.einsum("ij,ij->i", y_new, grad_output)
+        
         ein = "ij,i->ij" if for_x else "j,i->j"
-        sampled_grad = torch.einsum(ein, u, (p_new - p0) / shift)
-        grad = grad + sampled_grad
+        grad_sampled = torch.einsum(ein, u, (p_new - p0) / shift)
+        
+        grad = grad + grad_sampled
 
     grad = grad / samples
 

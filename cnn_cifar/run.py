@@ -90,7 +90,7 @@ def run():
             correct += predicted.eq(labels).sum().item()
         
         loss_trn = running_loss / len(loader_trn)
-        acc_trn = 100. * correct / total
+        acc_trn = correct / total
         
         model.eval()
         running_loss = 0.
@@ -109,7 +109,7 @@ def run():
                 correct += predicted.eq(labels).sum().item()
         
         loss_tst = running_loss / len(loader_tst)
-        acc_tst = 100. * correct / total
+        acc_tst = correct / total
         
         scheduler.step(loss_tst)
 

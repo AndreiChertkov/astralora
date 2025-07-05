@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 
 from .helpers.approximation import approximation
+from .helpers.approximation import bb_appr_w_svd
 from .helpers.backprop import backprop_wrap
 from .helpers.psi import psi_implicit
 from .bb_layers.bb_layer_id import create_bb_layer_id
@@ -18,7 +19,6 @@ class AstraloraLayer(nn.Module):
                  use_gd_update, gd_update_iters, use_residual,
                  log=print, nepman=None):
         super().__init__()
-        
         
         self.d_inp = d_inp
         self.d_out = d_out
@@ -99,17 +99,8 @@ class AstraloraLayer(nn.Module):
         self.generator = torch.Generator(device=self.device)
         self.generator.manual_seed(42)
 
-        if True:
-            U, S, V = approximation(self.bb, self.d_inp, self.d_out,
-                self.w.data.clone(), self.rank, self.log, self.nepman)
-            self.register_buffer('U', U)
-            self.register_buffer('S', S)
-            self.register_buffer('V', V)
-            # self._debug_err()
-        else:
-            self.register_buffer('U', None)
-            self.register_buffer('S', None)
-            self.register_buffer('V', None)
+        self._set_factors(*approximation(self.bb, self.d_inp, self.d_out,
+            self.w.data.clone(), self.rank, self.log, self.nepman), init=True)
 
         self.bb_wrapper = backprop_wrap(self.bb, self.generator,
             self.samples_sm, self.samples_bb,
@@ -118,6 +109,7 @@ class AstraloraLayer(nn.Module):
 
     def _debug_err(self):
         # TODO: now it use the exact form of bb. We should remove it later
+        # (it works ok only for linear layer)
         with torch.no_grad():
             A = self.w.data.detach().clone().reshape(self.d_out, self.d_inp)
             A_appr = self.U @ self.S @ self.V
@@ -126,13 +118,23 @@ class AstraloraLayer(nn.Module):
             if self.nepman:
                 self.nepman['astralora/A_error'].append(err)
 
+    def _set_factors(self, U=None, S=None, V=None, init=False):
+        if init:
+            self.register_buffer('U', U)
+            self.register_buffer('S', S)
+            self.register_buffer('V', V)
+        else:
+            self.U.data.copy_(U)
+            self.S.data.copy_(S)
+            self.V.data.copy_(V)
+
     def _update_factors(self, x, y, thr=1.E-12):
         with torch.no_grad():
             w_old = self.w_old
             w_new = self.w.data.detach().clone()
 
             delta = torch.norm(w_new - w_old) / torch.norm(w_old)
-            # self.log(f'... [DEBUG] Delta w : {delta:-12.5e}')
+            self.log(f'... [DEBUG] Delta w : {delta:-12.5e}')
             if self.nepman:
                 self.nepman['astralora/w_delta'].append(delta)
 
@@ -141,30 +143,24 @@ class AstraloraLayer(nn.Module):
 
         if self.use_gd_update:
             self._update_factors_gd(x, y)
-        else:
-            with torch.no_grad():
-                def f_old(X):
-                    return self.bb(X, w_old)
+            return
 
-                def f_new(X):
-                    return self.bb(X, w_new)
+        with torch.no_grad():
+            def f_old(X):
+                return self.bb(X, w_old)
 
-                if self.samples_sm == -1:
-                    E = torch.eye(self.d_inp, device=self.device)
-                    A = f_new(E).t()
-                    U, S, V = torch.linalg.svd(A, full_matrices=False)
-                    self.U = U[:, :self.rank]
-                    self.S = torch.diag(S[:self.rank])
-                    self.V = V[:self.rank, :]
-                    return
+            def f_new(X):
+                return self.bb(X, w_new)
 
-                self.U, self.S, self.V = psi_implicit(f_old, f_new,
-                    self.U, self.S, self.V, self.samples_sm)
-
-        #with torch.no_grad():
-        #    self._debug_err()
+            if self.samples_sm == -1: # "Exact" update:
+                self._set_factors(*bb_appr_w_svd(self.bb,
+                    self.d_inp, self.d_out, w_new, self.rank))
+            else:
+                self._set_factors(*psi_implicit(f_old, f_new,
+                    self.U, self.S, self.V, self.samples_sm))
 
     def _update_factors_gd(self, x, y, lr=1.E-4):
+        """This code was used only for test."""
         for _ in range(self.gd_update_iters):
             U = self.U.detach().requires_grad_(True)
             S = self.S.detach().requires_grad_(True)

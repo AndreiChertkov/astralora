@@ -20,6 +20,6 @@ def create_bb_layer_slm(d_inp, d_out):
     torch.nn.init.kaiming_uniform_(w, a=math.sqrt(5))
     w = w.reshape(-1)
 
-    dw = 1.
+    dw = 0.01
     
     return bb, w, dw

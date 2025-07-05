@@ -10,8 +10,8 @@ def create_bb_layer_id(d_inp, d_out):
     def bb(x, w):
         return x
 
-    w0 = torch.Tensor([])
+    w = torch.Tensor([])
     
     dw = 1.
     
-    return bb, w0, dw
+    return bb, w, dw

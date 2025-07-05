@@ -93,7 +93,6 @@ def init_seed(seed=1):
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-    # torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.deterministic = True
 
 

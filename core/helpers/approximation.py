@@ -9,6 +9,8 @@ def approximation(*args, **kwargs):
 
 def bb_appr_w_als(bb, d_inp, d_out, w, rank=10, log=print, nepman=None, 
                   n_samples=1000, lr=0.01, max_iter=50):
+    raise NotImplementedError('Outdated code')
+
     # Use ALS to approximate low-rank decomposition from samples
     
     # Get device from input tensor
@@ -88,8 +90,12 @@ class MatrixFactorizationALS:
     where B is (n x r) and C is (r x n) with r << n
     """
     
-    def __init__(self, rank, max_iter=100, tol=1e-6, random_state=42, device='cpu', 
-                 use_stochastic=True, learning_rate=0.01, momentum=0.9):
+    def __init__(self, rank, max_iter=100, tol=1e-6, random_state=42, 
+                 device='cpu', use_stochastic=True, learning_rate=0.01, 
+                 momentum=0.9):
+
+        raise NotImplementedError('Outdated code')
+        
         self.rank = rank
         self.max_iter = max_iter
         self.tol = tol

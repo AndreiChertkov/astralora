@@ -3,15 +3,16 @@
 Code taken from https://github.com/JeremieMelo/pytorch-onn/blob/main/torchonn/layers/mzi_linear.py
 
 """
-import numpy as np
 import torch
 from torch import Tensor
 
 
 def create_bb_layer_mzi(d_inp, d_out):
+    raise NotImplementedError
+
     v_max = 10.8
     v_pi = 4.36
-    gamma = np.pi / v_pi**2
+    gamma = torch.pi / v_pi**2
     w_bit = 32
     in_bit = 32
     photodetect = True
