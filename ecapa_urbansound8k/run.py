@@ -219,7 +219,7 @@ class UrbanSound8kBrain(sb.core.Brain):
                 ),  # "acc": self.valid_acc_metric.summarize(),
                 "error": self.error_metrics.summarize("average"),
             }
-            self.ast.step(
+            self.ast.step_end(
                 epoch=epoch-1,
                 loss_tst=stage_loss,
                 acc_tst=valid_stats["acc"],
@@ -234,7 +234,7 @@ class UrbanSound8kBrain(sb.core.Brain):
                 ),  # "acc": self.test_acc_metric.summarize(),
                 "error": self.error_metrics.summarize("average"),
             }
-            self.ast.step(
+            self.ast.step_end(
                 epoch=epoch,
                 loss_tst=stage_loss,
                 acc_tst=test_stats["acc"],
@@ -307,6 +307,41 @@ class UrbanSound8kBrain(sb.core.Brain):
                 test_stats=test_stats,
             )
 
+    def configure_optimizers(self):
+        # Основные параметры (исключая кастомные)
+        main_params = [p for p in self.modules.parameters() 
+            if not getattr(p, 'ast_bb', False)]
+        
+        # Инициализация основного оптимизатора только с ними
+        self.optimizer = self.opt_class(main_params)
+        
+        return self.optimizer
+
+    def fit_batch(self, batch):
+        if self.auto_mix_prec:
+            raise ValueError("AMP is not supported")
+
+        outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+        loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+        (loss / self.grad_accumulation_factor).backward()
+
+        #if self.use_gradient_accumulation:
+        #    should_step = (self.optimizer_step % self.grad_accumulation_factor) == 0
+        #else:
+        #    should_step = True
+        # if should_step:
+
+        self.optimizer.step()
+        self.ast.step()
+        
+        self.optimizer.zero_grad()
+        self.ast.step_before()
+
+        if hasattr(self, 'scheduler'):
+            self.hparams.lr_annealing.on_batch_end(self.optimizer)
+
+        self.optimizer_step += 1
+        return loss.detach().cpu()
 
 def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
@@ -446,6 +481,8 @@ def run(task='ecapa_urbansound8k'):
         model.modules.embedding_model.fc.linear)
     model.modules.embedding_model.fc.linear = \
         model.modules.embedding_model.fc.linear.to(ast.device)
+
+    ast.prepare(model.modules)
 
     model.fit(
         epoch_counter=model.hparams.epoch_counter,

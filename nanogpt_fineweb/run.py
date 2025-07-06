@@ -92,6 +92,8 @@ def run():
     model_raw = model.module # Always contains the unwrapped model
     ctx = torch.amp.autocast(device_type='cuda', dtype=torch.float32)
 
+    ast.prepare(model_raw)
+
     # --- Collect parameters for training proccess:
     params1 = model_raw.get_head_params()
     params2 = [] # model_raw.transformer.h.parameters()
@@ -119,6 +121,8 @@ def run():
         rank=ddp_rank,
         world_size=ddp_world_size)
     optimizers = [optimizer1, optimizer2]
+
+    """
     if len(params3) > 0:
         optimizer3 = torch.optim.AdamW(params3,
             lr=args.lr_bb,
@@ -126,6 +130,7 @@ def run():
             weight_decay=args.weight_decay,
             fused=True)
         optimizers.append(optimizer3)
+    """
     
     # --- Set the learning rate decay scheduler (linear warmup and warmdown):
     def get_lr(it):
@@ -160,7 +165,8 @@ def run():
         timed_steps = float('nan') if step <= 11 else (step - 10) + 1
 
         # --- Evaluate the validation dataset:
-        do_vld = args.vld_every > 0 and (step+1) % args.vld_every == 0
+        do_vld = step == 0
+        do_vld = do_vld or args.vld_every > 0 and (step+1) % args.vld_every == 0
         do_vld = do_vld or last_step
         if do_vld:
             # Stop the clock:
@@ -207,11 +213,13 @@ def run():
         for opt, sched in zip(optimizers, schedulers):
             opt.step()
             sched.step()
+        ast.step()
         model.zero_grad(set_to_none=True)
+        ast.step_before()
 
         if master_process and do_vld:
             approx_time = training_time_ms + 1000 * (time.time() - t0)
-            ast.step(step, loss_trn.item(), loss_vld, t=approx_time/1000)
+            ast.step_end(step, loss_trn.item(), loss_vld, t=approx_time/1000)
 
         if last_step:
             break

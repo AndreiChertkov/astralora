@@ -441,17 +441,17 @@ def main(ast, hyp, model):
     # reinit_net(model)
     current_steps = 0
 
-    norm_biases = [p for k, p in model.named_parameters() if 'norm' in k]
-    other_params = [p for k, p in model.named_parameters() if 'norm' not in k]
-    param_configs = [dict(params=norm_biases, lr=lr_biases, weight_decay=wd/lr_biases),
-                     dict(params=other_params, lr=lr, weight_decay=wd/lr)]
-    optimizer_trainbias = torch.optim.SGD(param_configs, momentum=momentum, nesterov=True)
-
-    norm_biases = [p for k, p in model.named_parameters() if 'norm' in k]
-    other_params = [p for k, p in model.named_parameters() if 'norm' not in k]
-    param_configs = [dict(params=norm_biases, lr=lr_biases, weight_decay=wd/lr_biases),
-                     dict(params=other_params, lr=lr, weight_decay=wd/lr)]
-    optimizer_freezebias = torch.optim.SGD(param_configs, momentum=momentum, nesterov=True)
+    # TODO: note this:
+    norm_biases = [p for k, p in model.named_parameters()
+        if 'norm' in k and not hasattr(p, 'ast_bb')]
+    other_params = [p for k, p in model.named_parameters()
+        if 'norm' not in k and not hasattr(p, 'ast_bb')]
+    
+    param_configs = [
+        dict(params=norm_biases, lr=lr_biases, weight_decay=wd/lr_biases),
+        dict(params=other_params, lr=lr, weight_decay=wd/lr)]
+    
+    optimizer = torch.optim.SGD(param_configs, momentum=momentum, nesterov=True)
 
     def get_lr(step):
         warmup_steps = int(total_train_steps * 0.1)
@@ -462,8 +462,8 @@ def main(ast, hyp, model):
         else:
             frac = (total_train_steps - step) / warmdown_steps
             return frac
-    scheduler_trainbias = torch.optim.lr_scheduler.LambdaLR(optimizer_trainbias, get_lr)
-    scheduler_freezebias = torch.optim.lr_scheduler.LambdaLR(optimizer_freezebias, get_lr)
+    
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, get_lr)
 
     alpha_schedule = 0.95**5 * (torch.arange(total_train_steps+1) / total_train_steps)**3
     #lookahead_state = LookaheadState(model)
@@ -483,9 +483,6 @@ def main(ast, hyp, model):
     total_time_seconds += 1e-3 * starter.elapsed_time(ender)
 
     for indices, inputs, labels in train_loader:
-        optimizer = optimizer_trainbias
-        scheduler = scheduler_trainbias
-
         if current_steps % steps_per_epoch == 0:
             epoch = current_steps // steps_per_epoch
             starter.record()
@@ -495,10 +492,14 @@ def main(ast, hyp, model):
         loss = loss_fn(outputs, labels).sum()
 
         optimizer.zero_grad(set_to_none=True)
+        ast.step_before()
+        
         loss.backward()
+        
         optimizer.step()
         scheduler.step()
-
+        ast.step()
+        
         current_steps += 1
         #if current_steps % 5 == 0:
         #    lookahead_state.update(model, decay=alpha_schedule[current_steps].item())
@@ -516,7 +517,8 @@ def main(ast, hyp, model):
             train_loss = loss.item() / batch_size
             val_acc = evaluate(model, test_loader, tta_level=0)
 
-            ast.step(epoch, train_loss, None, train_acc, val_acc)
+            # TODO: note this:
+            ast.step_end(epoch, train_loss, None, train_acc, val_acc)
 
         if current_steps == total_train_steps:
             break
@@ -535,10 +537,13 @@ def main(ast, hyp, model):
 def run():
     ast = Astralora('airbench_cifar', with_neptune=False)
 
+    hyp['opt']['train_epochs'] = ast.args.epochs
+
     model = make_net(hyp['net'])
     model[7] = ast.build(model[7])
     model = model.to(ast.device, memory_format=torch.channels_last)
     # model = torch.compile(model, mode='max-autotune')
+    ast.prepare(model)
     acc = main(ast, hyp, model)
     ast.done(model)
 

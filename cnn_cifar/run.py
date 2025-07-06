@@ -55,7 +55,7 @@ class Model(nn.Module):
 
 
 def run():
-    ast = Astralora('cnn_cifar', with_neptune=False)
+    ast = Astralora('cnn_cifar')
 
     loader_trn, loader_tst = _build_data(
         ast.args.root_data, ast.args.batch_size)
@@ -64,8 +64,13 @@ def run():
     model.classifier[1] = ast.build(model.classifier[1])
     model = model.to(ast.device) # Do it after ast.build!
 
+    ast.prepare(model)
+
+    parameters = [p for k, p in model.named_parameters()
+        if not hasattr(p, 'ast_bb')]
+
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=ast.args.lr)
+    optimizer = optim.Adam(parameters, lr=ast.args.lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
         factor=0.5, patience=5)
 
@@ -79,10 +84,15 @@ def run():
             inputs, labels = inputs.to(ast.device), labels.to(ast.device)
             
             optimizer.zero_grad()
+            ast.step_before()
+
             outputs = model(inputs)
+            
             loss = criterion(outputs, labels)
             loss.backward()
+            
             optimizer.step()
+            ast.step()
             
             running_loss += loss.item()
             _, predicted = outputs.max(1)
@@ -113,7 +123,7 @@ def run():
         
         scheduler.step(loss_tst)
 
-        ast.step(epoch, loss_trn, loss_tst, acc_trn, acc_tst)
+        ast.step_end(epoch, loss_trn, loss_tst, acc_trn, acc_tst)
 
     ast.done(model)
 
