@@ -455,11 +455,11 @@ def run(task='ecapa_urbansound8k'):
         valid_loader_kwargs=hparams["dataloader_options"])
 
     # Load the best checkpoint for evaluation:
-    test_stats = model.evaluate(
-        test_set=datasets["test"],
-        min_key="error",
-        progressbar=True,
-        test_loader_kwargs=hparams["dataloader_options"])
+    #test_stats = model.evaluate(
+    #    test_set=datasets["test"],
+    #    min_key="error",
+    #    progressbar=True,
+    #    test_loader_kwargs=hparams["dataloader_options"])
 
     ast.done()
 

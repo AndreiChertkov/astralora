@@ -124,9 +124,9 @@ class AstraloraLayer(nn.Module):
             self.register_buffer('S', S)
             self.register_buffer('V', V)
         else:
-            self.U.data.copy_(U)
-            self.S.data.copy_(S)
-            self.V.data.copy_(V)
+            self.U = U # .data.copy_(U)
+            self.S = S # .data.copy_(S)
+            self.V = V # .data.copy_(V)
 
     def _update_factors(self, x, y, thr=1.E-12):
         with torch.no_grad():
@@ -134,7 +134,7 @@ class AstraloraLayer(nn.Module):
             w_new = self.w.data.detach().clone()
 
             delta = torch.norm(w_new - w_old) / torch.norm(w_old)
-            self.log(f'... [DEBUG] Delta w : {delta:-12.5e}')
+            # self.log(f'... [DEBUG] Delta w : {delta:-12.5e}')
             if self.nepman:
                 self.nepman['astralora/w_delta'].append(delta)
 
