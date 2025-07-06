@@ -48,7 +48,10 @@ def config(task, args_add={}):
 
 
 def _config_airbench_cifar(task, parser):
-    return
+    parser.add_argument('--epochs',
+        type=int,
+        help='Number of training epochs',
+        default=100)
 
 
 def _config_astralora(task, parser):
@@ -59,29 +62,24 @@ def _config_astralora(task, parser):
 
     parser.add_argument('--samples_bb',
         type=int,
-        help='Number of samples to train bb (its parameters). If =-1, then "exact" computation performed.',
-        default=1000)
+        help='Number of samples to train bb (its parameters). If =-1, then "exact" (gradient-based) computation is performed (only for debug)',
+        default=0)
     
     parser.add_argument('--samples_sm',
         type=int,
-        help='Number of samples to update surrogate model. If =-1, then "exact" computation performed.',
-        default=1000)
+        help='Number of samples to update surrogate model. If =-1, then "exact" (svd-based) computation is performed (only for debug)',
+        default=0)
 
-    parser.add_argument('--use_gd_update',
+    parser.add_argument('--skip_sm',
         type=lambda x: bool(strtobool(x)),
-        help='It true, we use gd-based naive update instead of PSI',
+        help='If True, then we use the autograd to pass a gradient through a bb-layer instead of the surrogate model (only for debug)',
         nargs='?',
         const=True,
         default=False)
-    
-    parser.add_argument('--gd_update_iters',
-        type=int,
-        help='Number of iterations for gd-based naive update (it is only used if the flag "use_gd_update" is set)',
-        default=1)
 
     parser.add_argument('--use_residual',
         type=lambda x: bool(strtobool(x)),
-        help='Do we use residual connections',
+        help='If True, then we add the residual connections for bb-layer',
         nargs='?',
         const=True,
         default=False)

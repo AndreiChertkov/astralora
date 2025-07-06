@@ -27,12 +27,12 @@ def create_bb_layer_mrr(d_inp, d_out):
         return build_weight_from_phase(phases)
     
     def bb(x, w):
-        weight = build_weight_from_phase(w).view(d_inp, d_out)
-        return x @ weight
+        A = build_weight_from_phase(w).reshape(d_out, d_inp)
+        return x @ A.T
 
     w = build_parameters()
 
-    dw = 0.01
+    dw = 1.E-5 # 0.01
     
     return bb, w, dw
 

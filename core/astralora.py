@@ -66,8 +66,7 @@ class Astralora:
                 rank=self.args.rank, 
                 samples_bb=self.args.samples_bb,
                 samples_sm=self.args.samples_sm,
-                use_gd_update=self.args.use_gd_update,
-                gd_update_iters=self.args.gd_update_iters,
+                skip_sm=self.args.skip_sm,
                 use_residual=self.args.use_residual,
                 log=self.log,
                 nepman=self.nepman)
@@ -75,7 +74,8 @@ class Astralora:
         raise NotImplementedError
 
     def done(self, model=None):
-        torch.save(model.state_dict(), self.path('model.pth'))
+        if model is not None:
+            torch.save(model.state_dict(), self.path('model.pth'))
 
         np.savez_compressed(self.path('result.npz'), res={
             'args': self._args_to_dict(),
@@ -107,9 +107,9 @@ class Astralora:
         if len(self.accs_trn) > 0 or len(self.accs_tst) > 0:
             plt.figure(figsize=(6, 4))
             if len(self.accs_trn) > 0:
-                plt.plot(self.accs_trn * 100, label='Train Accuracy')
+                plt.plot(np.array(self.accs_trn) * 100, label='Train Accuracy')
             if len(self.accs_tst) > 0:
-                plt.plot(self.accs_tst * 100, label='Test Accuracy')
+                plt.plot(np.array(self.accs_tst) * 100, label='Test Accuracy')
             plt.xlabel('Epochs')
             plt.ylabel('Accuracy (%)')
             plt.legend()
@@ -117,7 +117,72 @@ class Astralora:
             plt.tight_layout()
             plt.savefig(self.path('_plot_acc.png'))
 
-    def step(self, epoch=None, loss_trn=None, loss_tst=None,
+    def plot_bb_w(self, epoch=None):
+        params = [p for k, p in self.model.named_parameters()
+            if hasattr(p, 'ast_bb')]
+
+        w0 = self.w0.cpu().numpy()
+        w1 = params[0].data.detach().clone().cpu().numpy()
+
+        plt.figure(figsize=(12, 7))
+
+        log_scale = False
+
+        plt.hist(w0, bins=500, alpha=0.7, 
+                label='Initial', density=True, log=log_scale, color='green')
+        plt.hist(w1, bins=500, alpha=0.4, 
+                label='Final', density=True, log=log_scale, color='blue')
+
+        if epoch is not None:
+            plt.title(f'BB parameters for epoch: {epoch+1}', fontsize=16)
+        else:
+            plt.title(f'BB parameters', fontsize=16)
+        plt.xlabel('Value', fontsize=12)
+        plt.ylabel('Density' if not log_scale else 'Log Density', fontsize=12)
+        plt.legend(fontsize=14)
+        plt.grid(True, alpha=0.3)
+        
+        plt.savefig(self.path('bb_w.png'), dpi=300, bbox_inches='tight')
+        plt.close()
+
+    def prepare(self, model):
+        self.model = model
+
+        params =  [p for p in model.parameters() 
+            if getattr(p, 'ast_bb', False)]
+
+        if self.args.mode == 'digital' and len(params) > 0:
+            raise ValueError
+        if self.args.mode == 'bb' and len(params) == 0:
+            raise ValueError
+
+        if self.args.mode == 'digital':
+            return
+
+        self.w0 = params[0].data.detach().clone()
+
+        self.optimizer = CustomSGD(params,
+            lr=1e-2,
+            momentum=0.95,
+            nesterov=True,
+            weight_decay=0.1,
+            cycle_length=100)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
+
+    def step(self):
+        if self.args.mode == 'digital':
+            return
+
+        self.optimizer.step()
+        self.scheduler.step()
+
+    def step_before(self):
+        if self.args.mode == 'digital':
+            return
+
+        self.optimizer.zero_grad()
+
+    def step_end(self, epoch=None, loss_trn=None, loss_tst=None,
              acc_trn=None, acc_tst=None, t=None):
         if loss_trn is not None:
             self.losses_trn.append(loss_trn)
@@ -158,7 +223,51 @@ class Astralora:
 
         self.log(text)
 
+        if self.args.mode == 'bb':
+            self.plot_bb_w(epoch)
+
     def _args_to_dict(self):
         def _check(v):
             return isinstance(v, (bool, int, float, str))
         return {n: v for n, v in vars(self.args).items() if _check(v)}
+
+
+class CustomSGD(torch.optim.Optimizer):
+    def __init__(self, params, lr=0.1, momentum=0.95, nesterov=True, 
+                 weight_decay=1e-4, cycle_length=100):
+        defaults = dict(lr=lr, momentum=momentum, nesterov=nesterov,
+            weight_decay=weight_decay, cycle_length=cycle_length)
+        
+        super().__init__(params, defaults)
+        
+        self.step_counter = 0
+        
+    def step(self, closure=None):
+        self.step_counter += 1
+        
+        for group in self.param_groups:
+            if self.step_counter % group['cycle_length'] == 0:
+                for p in group['params']:
+                    if p in self.state:
+                        self.state[p].pop('momentum_buffer', None)
+            
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                grad = p.grad.data
+                state = self.state[p]
+                
+                if group['weight_decay'] != 0:
+                    grad = grad.add(p.data, alpha=group['weight_decay'])
+                
+                if 'momentum_buffer' not in state:
+                    state['momentum_buffer'] = torch.zeros_like(p.data)
+                
+                buf = state['momentum_buffer']
+                
+                buf.mul_(group['momentum']).add_(grad)
+                
+                if group['nesterov']:
+                    p.data.add_(buf.mul(group['momentum']).add(grad), alpha=-group['lr'])
+                else:
+                    p.data.add_(buf, alpha=-group['lr'])

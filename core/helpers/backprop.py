@@ -1,8 +1,7 @@
 import torch
 
 
-def backprop_wrap(bb_func, generator, samples_x=1, samples_w=1,
-                  stoch_shift_w=1., use_sm=True, use_matvec_w=False):
+def backprop_wrap(bb_func, generator, samples_w=1, shift_w=1., skip_sm=False):
     class FuncCustom(torch.autograd.Function):
         @staticmethod
         def forward(ctx, x, w, U, S, V):
@@ -12,19 +11,42 @@ def backprop_wrap(bb_func, generator, samples_x=1, samples_w=1,
         @staticmethod
         def backward(ctx, grad_output):
             x, w, U, S, V = ctx.saved_tensors
-            
-            if use_sm:
-                grad_x = grad_output @ U @ S @ V
-            else:
-                grad_x = _backprop_stochastic(bb_func, x, w, grad_output, 
-                    generator, samples_x, for_x=True)
 
-            if use_matvec_w:
-                grad_w = grad_output.t() @ x
-                grad_w = grad_w.reshape(-1)
+            if skip_sm:
+                # We use GD for x-grad:
+                with torch.enable_grad():
+                    x_grad = x.detach().requires_grad_(True)
+                    y_x = bb_func(x_grad, w.detach())
+                    grad_x, = torch.autograd.grad(
+                        outputs=y_x,
+                        inputs=x_grad,
+                        grad_outputs=grad_output)
             else:
+                # We use SM for x-grad:
+                grad_x = grad_output @ U @ S @ V
+
+            if samples_w == -1:
+                # We use GD for w-grad:
+                # (for linear layer it would be:
+                # grad_w = grad_output.t() @ x
+                # grad_w = grad_w.reshape(-1)  )
+                with torch.enable_grad():
+                    w_grad = w.detach().requires_grad_(True)
+                    y_w = bb_func(x.detach(), w_grad)
+                    grad_w, = torch.autograd.grad(
+                        outputs=y_w,
+                        inputs=w_grad,
+                        grad_outputs=grad_output)
+            else:
+                # We use stochastic formula for w-grad:
+                if samples_w < 1:
+                    raise ValueError('Invalid number of samples to update w')
                 grad_w = _backprop_stochastic(bb_func, x, w, grad_output, 
-                    generator, samples_w, stoch_shift_w, for_x=False)
+                    generator, samples_w, shift_w)
+
+            # print('--- DEBUG')
+            # print('grad_output', torch.norm(grad_output), 'grad_x', torch.norm(grad_x), 'grad_w', torch.norm(grad_w), 'w', torch.norm(w))
+            # print(w[0], w[1], w[-1])
 
             return grad_x, grad_w, None, None, None
 
@@ -32,7 +54,7 @@ def backprop_wrap(bb_func, generator, samples_x=1, samples_w=1,
 
 
 def _backprop_stochastic(bb_func, x, w, grad_output, generator,
-                         samples=1, shift=1., for_x=True):
+                         samples=1, shift=1., for_x=False):
     device = grad_output.device
 
     x = torch.clone(x.detach())
