@@ -51,6 +51,7 @@ class AstraloraLayer(nn.Module):
             raise NotImplementedError
         
         self.w = nn.Parameter(w0)
+        self.scale = nn.Parameter(torch.ones(1))
         self.w.ast_bb = True
         self.w_old = None
 
@@ -86,7 +87,7 @@ class AstraloraLayer(nn.Module):
         self.w_old = self.w.data.detach().clone()
             
         y = y.reshape(*shape[:-1], y.shape[-1])
-
+        y = y * self.scale
         if self.use_residual:
             y = y + self._add_residual(x, y)
 

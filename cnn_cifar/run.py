@@ -73,7 +73,7 @@ def run():
     optimizer = optim.Adam(parameters, lr=ast.args.lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
         factor=0.5, patience=5)
-
+    
     for epoch in range(ast.args.epochs):
         model.train()
         running_loss = 0.
@@ -122,6 +122,7 @@ def run():
         acc_tst = correct / total
         
         scheduler.step(loss_tst)
+
 
         ast.step_end(epoch, loss_trn, loss_tst, acc_trn, acc_tst)
 

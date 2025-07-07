@@ -16,7 +16,11 @@ def create_bb_layer_mrr(d_inp, d_out):
 
     def build_parameters():
         phase = torch.empty((d_out, d_inp))
-        torch.nn.init.kaiming_uniform_(phase, a=math.sqrt(5))
+        # phase = torch.nn.init.kaiming_uniform_(phase, a=math.sqrt(5))
+        # phase = torch.arccos(phase)
+        # phase = torch.zeros_like(phase)
+        # phase = torch.nn.init.uniform_(phase, 0, 2*math.pi) # Initialize uniform angles between 0 and 2π
+        torch.nn.init.uniform_(phase, math.pi/2 - 0.1, math.pi/2 + 0.1)
         phase = phase.reshape(-1)
         return phase
     

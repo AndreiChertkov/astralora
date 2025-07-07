@@ -161,13 +161,18 @@ class Astralora:
 
         self.w0 = params[0].data.detach().clone()
 
-        self.optimizer = CustomSGD(params,
-            lr=1e-2,
-            momentum=0.95,
-            nesterov=True,
-            weight_decay=0.1,
-            cycle_length=100)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
+        self.optimizer = torch.optim.Adam(params,
+            lr=0.01)
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer,
+            T_max=self.args.epochs, eta_min=1e-6)
+
+        # self.optimizer = CustomSGD(params,
+        #     lr=1e-2,
+        #     momentum=0.95,
+        #     nesterov=True,
+        #     weight_decay=0.1,
+        #     cycle_length=100)
+        # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
 
     def step(self):
         if self.args.mode == 'digital':
