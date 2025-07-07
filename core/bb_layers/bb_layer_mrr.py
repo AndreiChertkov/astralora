@@ -36,7 +36,7 @@ def create_bb_layer_mrr(d_inp, d_out):
 
     w = build_parameters()
 
-    dw = 1.E-5 # 0.01
+    dw = 1.E-4
     
     return bb, w, dw
 

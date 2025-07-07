@@ -26,6 +26,6 @@ def create_bb_layer_slm(d_inp, d_out):
     torch.nn.init.uniform_(w, math.pi/2 - 0.1, math.pi/2 + 0.1)
     w = w.reshape(-1)
 
-    dw = 0.01
+    dw = 1.E-4
     
     return bb, w, dw
