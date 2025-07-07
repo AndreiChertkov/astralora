@@ -86,6 +86,9 @@ class Astralora:
             'times': self.times})
 
         self.plot()
+
+        if self.args.mode == 'bb':
+            self.plot_bb_w()
         
     def path(self, fpath):
         return os.path.join(self.args.folder, fpath)
@@ -228,8 +231,8 @@ class Astralora:
 
         self.log(text)
 
-        if self.args.mode == 'bb':
-            self.plot_bb_w(epoch)
+        #if self.args.mode == 'bb':
+        #    self.plot_bb_w(epoch)
 
     def _args_to_dict(self):
         def _check(v):
