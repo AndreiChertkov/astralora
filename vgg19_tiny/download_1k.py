@@ -36,9 +36,9 @@ def download_imagenet_1k(data_dir='imagenet-1k'):
     except ImportError:
         raise ImportError("Please install datasets and PIL: pip install datasets pillow")
     
-    if os.path.exists(os.path.join(data_dir, 'train')) and os.path.exists(os.path.join(data_dir, 'val')):
-        print(f"ImageNet-1K dataset already exists in {data_dir}")
-        return data_dir
+    # if os.path.exists(os.path.join(data_dir, 'train')) and os.path.exists(os.path.join(data_dir, 'val')):
+    #     print(f"ImageNet-1K dataset already exists in {data_dir}")
+    #     return data_dir
     
     print("Downloading ImageNet-1K dataset from HuggingFace...")
     print("This may take a while as ImageNet-1K is a large dataset...")
