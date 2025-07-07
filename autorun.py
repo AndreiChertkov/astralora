@@ -52,6 +52,56 @@ def autorun_airbench_cifar(task, kind):
                 _run(args)
 
 
+def autorun_spec(task, kind):
+    print(f'>>> Run task "{task}" for the layer "{kind}".')
+
+    root = f'{task}/result_{kind}'
+    ranks = [1, 10, 50, 100]
+
+    args = SimpleNamespace(**{'task': task, 'root': root})
+    args.name = f'digital'
+    args.mode = 'digital'
+    _run(args)
+
+    args = SimpleNamespace(**{'task': task, 'root': root})
+    args.name = f'baseline_full_{kind}'
+    args.mode = 'bb'
+    args.bb_kind = kind
+    args.samples_bb = -1
+    args.skip_sm = True
+    _run(args)
+
+    for rank in ranks:
+        args = SimpleNamespace(**{'task': task, 'root': root})
+        args.name = f'baseline_{kind}_rank{rank}'
+        args.mode = 'bb'
+        args.bb_kind = kind
+        args.samples_bb = -1
+        args.samples_sm = -1
+        args.rank = rank
+        _run(args)
+
+    for rank in ranks:
+        args = SimpleNamespace(**{'task': task, 'root': root})
+        args.name = f'bb-gd_{kind}_rank{rank}'
+        args.mode = 'bb'
+        args.bb_kind = kind
+        args.samples_bb = -1
+        args.samples_sm = 1000
+        args.rank = rank
+        _run(args)
+
+    for rank in ranks:
+        args = SimpleNamespace(**{'task': task, 'root': root})
+        args.name = f'bb_{kind}_rank{rank}'
+        args.mode = 'bb'
+        args.bb_kind = kind
+        args.samples_bb = 100 if task == 'nanogpt_fineweb' else 1000
+        args.samples_sm = 1000
+        args.rank = rank
+        _run(args)
+
+
 def _args_to_command(args):
     command = ['python', 'script.py']
     for name, value in vars(args).items():
@@ -86,6 +136,10 @@ def _run(args):
 
 
 if __name__ == '__main__':
-    task = sys.argv[1] if len(sys.argv) > 1 else 'airbench_cifar'
-    kind = sys.argv[2] if len(sys.argv) > 2 else 'matvec'
-    autorun(task, kind)
+    # task = sys.argv[1] if len(sys.argv) > 1 else 'airbench_cifar'
+    # kind = sys.argv[2] if len(sys.argv) > 2 else 'matvec'
+    # autorun(task, kind)
+
+    for task in ['airbench_cifar', 'cnn_cifar', 'nanogpt_fineweb', 'ecapa_urbansound8k']:
+        for kind in ['matvec', 'slm', 'mrr']:
+            autorun_spec(task, kind)
