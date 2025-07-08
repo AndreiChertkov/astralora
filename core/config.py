@@ -126,6 +126,7 @@ def _config_base(task, parser):
         choices=[
             "id",                    # Identity layer
             "matvec",                # Simple linear-like layer
+            "monarch",               # Monarch layer
             "mrr",                   # MRR layer from torch-onn
             "mzi",                   # MZI layer from torch-onn
             "slm",                   # SLM layer

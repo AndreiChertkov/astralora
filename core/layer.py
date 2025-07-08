@@ -9,6 +9,7 @@ from .helpers.backprop import backprop_wrap
 from .helpers.psi import psi_implicit
 from .bb_layers.bb_layer_id import create_bb_layer_id
 from .bb_layers.bb_layer_matvec import create_bb_layer_matvec
+from .bb_layers.bb_layer_monarch import create_bb_layer_monarch
 from .bb_layers.bb_layer_mrr import create_bb_layer_mrr
 from .bb_layers.bb_layer_mzi import create_bb_layer_mzi
 from .bb_layers.bb_layer_slm import create_bb_layer_slm
@@ -37,6 +38,9 @@ class AstraloraLayer(nn.Module):
                 self.d_inp, self.d_out)
         elif self.kind == 'matvec':
             self.bb, w0, self.dw = create_bb_layer_matvec(
+                self.d_inp, self.d_out)
+        elif self.kind == 'monarch':
+            self.bb, w0, self.dw = create_bb_layer_monarch(
                 self.d_inp, self.d_out)
         elif self.kind == 'mrr':
             self.bb, w0, self.dw = create_bb_layer_mrr(
