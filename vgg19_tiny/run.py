@@ -447,7 +447,7 @@ def main_worker(gpu, ngpus_per_node, args, ast):
         
         scheduler.step()
         
-        ast.step(epoch, train_loss, val_loss, train_acc1, val_acc1)
+        ast.step_end(epoch=epoch, loss_trn=train_loss, loss_tst=val_loss, acc_trn=train_acc1, acc_tst=val_acc1)
         
         # remember best acc@1 and save checkpoint
         is_best = val_acc1 > best_acc1
