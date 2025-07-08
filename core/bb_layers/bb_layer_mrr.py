@@ -6,14 +6,17 @@ Code taken from https://github.com/JeremieMelo/pytorch-onn/blob/main/torchonn/la
 import math
 import torch
 
+v_max = 10.8
+v_pi = 4.36
+gamma = torch.pi / v_pi**2
+
+mrr_tr_to_weight = lambda x: 2 * x - 1
+
+def build_weight_from_phase(phases):
+    return mrr_tr_to_weight(mrr_roundtrip_phase_to_tr(phases))
+    
 
 def create_bb_layer_mrr(d_inp, d_out):
-    v_max = 10.8
-    v_pi = 4.36
-    gamma = torch.pi / v_pi**2
-
-    mrr_tr_to_weight = lambda x: 2 * x - 1
-
     def build_parameters():
         phase = torch.empty((d_out, d_inp))
         # phase = torch.nn.init.kaiming_uniform_(phase, a=math.sqrt(5))
@@ -23,12 +26,9 @@ def create_bb_layer_mrr(d_inp, d_out):
         torch.nn.init.uniform_(phase, math.pi/2 - 0.1, math.pi/2 + 0.1)
         phase = phase.reshape(-1)
         return phase
-    
-    def build_weight_from_phase(phases):
-        return mrr_tr_to_weight(mrr_roundtrip_phase_to_tr(phases))
-    
-    def build_weight(phases):
-        return build_weight_from_phase(phases)
+   
+    # def build_weight(phases):
+    #     return build_weight_from_phase(phases)
     
     def bb(x, w):
         A = build_weight_from_phase(w).reshape(d_out, d_inp)

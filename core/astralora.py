@@ -13,6 +13,9 @@ from .helpers.utils import modify_gpu_args_for_cryri
 from .helpers.utils import save_args_to_markdown
 from .layer import AstraloraLayer
 
+from .bb_layers.bb_layer_mrr import build_weight_from_phase
+import warnings
+
 
 class Astralora:
     def __init__(self, task, with_neptune=False, master_process=True):
@@ -91,6 +94,8 @@ class Astralora:
 
         if self.args.mode == 'bb':
             self.plot_bb_w()
+
+            self.plot_bb_w_matrix()
         
     def path(self, fpath):
         return os.path.join(self.args.folder, fpath)
@@ -148,6 +153,41 @@ class Astralora:
         plt.grid(True, alpha=0.3)
         
         plt.savefig(self.path('bb_w.png'), dpi=300, bbox_inches='tight')
+        plt.close()
+
+    def plot_bb_w_matrix(self, epoch=None):
+        params = [p for k, p in self.model.named_parameters()
+            if hasattr(p, 'ast_bb')]
+
+        w0 = self.w0.cpu().numpy()
+        w1 = params[0].data.detach().clone().cpu().numpy()
+
+        if self.args.bb_kind == 'mrr':
+            
+            A0 = build_weight_from_phase(w0)
+            A1 = build_weight_from_phase(w1)
+        elif self.args.bb_kind == 'matvec':
+            A0 = w0
+            A1 = w1
+        else:
+            warnings.warn(f'BB kind {self.args.bb_kind} not supported for plotting entire matrix')
+
+        log_scale = False
+        plt.hist(A0.flatten(), bins=500, alpha=0.7, 
+                label='Initial', density=True, log=log_scale, color='green')
+        plt.hist(A1.flatten(), bins=500, alpha=0.4, 
+                label='Final', density=True, log=log_scale, color='blue')
+
+        if epoch is not None:   
+            plt.title(f'BB parameters for epoch: {epoch+1}', fontsize=16)
+        else:
+            plt.title(f'BB parameters', fontsize=16)
+        plt.xlabel('Value', fontsize=12)
+        plt.ylabel('Density' if not log_scale else 'Log Density', fontsize=12)
+        plt.legend(fontsize=14)
+        plt.grid(True, alpha=0.3)
+        
+        plt.savefig(self.path('bb_w_matrix.png'), dpi=300, bbox_inches='tight')
         plt.close()
 
     def prepare(self, model):
