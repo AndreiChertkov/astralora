@@ -21,6 +21,8 @@ import multiprocessing as mp
 from functools import partial
 from tqdm import tqdm
 import time
+import warnings
+import logging
 
 
 def process_batch(batch_data, output_dir, split_name):
@@ -35,6 +37,10 @@ def process_batch(batch_data, output_dir, split_name):
     Returns:
         int: Number of images processed
     """
+    # Suppress PIL warnings that can cause multiprocessing issues
+    warnings.filterwarnings("ignore", category=UserWarning, module="PIL")
+    logging.getLogger('PIL').setLevel(logging.ERROR)
+    
     try:
         from PIL import Image
     except ImportError:
@@ -59,17 +65,57 @@ def process_batch(batch_data, output_dir, split_name):
                 processed_count += 1
                 continue
             
-            # Save image
-            if isinstance(image, Image.Image):
-                image.save(image_path, "JPEG", quality=95)
-            else:
-                # Handle case where image might be in different format
-                Image.fromarray(image).save(image_path, "JPEG", quality=95)
+            # More robust image processing with multiple fallbacks
+            saved = False
             
-            processed_count += 1
-            
+            # Try saving the image with multiple approaches
+            try:
+                if isinstance(image, Image.Image):
+                    # First try: Save as-is but with error handling for corrupt EXIF
+                    try:
+                        # Create a copy to avoid modifying original
+                        img_copy = image.copy()
+                        # Remove potentially corrupt EXIF data
+                        if hasattr(img_copy, '_getexif'):
+                            img_copy.info.pop('exif', None)
+                        img_copy.save(image_path, "JPEG", quality=95)
+                        saved = True
+                    except Exception:
+                        # Second try: Convert to RGB and save (removes all metadata)
+                        try:
+                            rgb_image = image.convert('RGB')
+                            rgb_image.save(image_path, "JPEG", quality=95)
+                            saved = True
+                        except Exception:
+                            # Third try: Save without any optimization
+                            try:
+                                image.save(image_path, "JPEG", quality=95, optimize=False)
+                                saved = True
+                            except Exception:
+                                pass
+                else:
+                    # Handle numpy arrays or other formats
+                    try:
+                        pil_image = Image.fromarray(image)
+                        # Convert to RGB to ensure compatibility
+                        if pil_image.mode != 'RGB':
+                            pil_image = pil_image.convert('RGB')
+                        pil_image.save(image_path, "JPEG", quality=95)
+                        saved = True
+                    except Exception:
+                        pass
+                
+                if saved:
+                    processed_count += 1
+                else:
+                    print(f"Failed to save image {idx} in {split_name} after all attempts")
+                    
+            except Exception as e:
+                print(f"Error processing image {idx} in {split_name}: {e}")
+                continue
+                
         except Exception as e:
-            print(f"Error processing image {idx} in {split_name}: {e}")
+            print(f"Critical error processing item {idx} in {split_name}: {e}")
             continue
     
     return processed_count
@@ -105,72 +151,113 @@ def save_split_parallel(split_name, dataset_split, output_dir, num_workers=4, ba
     batch = []
     batch_idx = 0
     
-    # Create process pool
-    with mp.Pool(processes=num_workers) as pool:
-        active_tasks = []
-        
-        for idx, example in enumerate(dataset_split):
-            batch.append((idx, example))
+    # Create process pool with timeout handling
+    try:
+        with mp.Pool(processes=num_workers) as pool:
+            active_tasks = []
             
-            # Process batch when it's full
-            if len(batch) >= batch_size:
-                # Submit batch for processing
-                task = pool.apply_async(
-                    process_batch, 
-                    (batch.copy(), output_dir, split_name)
-                )
-                active_tasks.append(task)
-                batch = []
-                batch_idx += 1
+            for idx, example in enumerate(dataset_split):
+                batch.append((idx, example))
                 
-                # Check for completed tasks and update progress
-                completed_tasks = []
-                for task in active_tasks:
-                    if task.ready():
-                        try:
-                            processed_count = task.get()
-                            pbar.update(processed_count)
-                            completed_tasks.append(task)
-                        except Exception as e:
-                            print(f"Batch processing error: {e}")
-                            completed_tasks.append(task)
-                
-                # Remove completed tasks
-                for task in completed_tasks:
-                    active_tasks.remove(task)
-                
-                # Limit number of active tasks to control memory usage
-                while len(active_tasks) >= num_workers * 2:
-                    time.sleep(0.1)
+                # Process batch when it's full
+                if len(batch) >= batch_size:
+                    # Submit batch for processing
+                    task = pool.apply_async(
+                        process_batch, 
+                        (batch.copy(), output_dir, split_name)
+                    )
+                    active_tasks.append((task, time.time()))  # Store start time
+                    batch = []
+                    batch_idx += 1
+                    
+                    # Check for completed tasks and update progress
                     completed_tasks = []
-                    for task in active_tasks:
+                    for task_info in active_tasks:
+                        task, start_time = task_info
+                        
+                        # Check for timeout (5 minutes per batch)
+                        if time.time() - start_time > 300:
+                            print(f"Warning: Batch processing timeout, terminating task")
+                            try:
+                                task.terminate()
+                            except:
+                                pass
+                            completed_tasks.append(task_info)
+                            continue
+                        
                         if task.ready():
                             try:
-                                processed_count = task.get()
+                                processed_count = task.get(timeout=10)  # 10 second timeout for get
                                 pbar.update(processed_count)
-                                completed_tasks.append(task)
+                                completed_tasks.append(task_info)
                             except Exception as e:
                                 print(f"Batch processing error: {e}")
-                                completed_tasks.append(task)
+                                completed_tasks.append(task_info)
                     
-                    for task in completed_tasks:
-                        active_tasks.remove(task)
+                    # Remove completed tasks
+                    for task_info in completed_tasks:
+                        active_tasks.remove(task_info)
+                    
+                    # Limit number of active tasks to control memory usage
+                    while len(active_tasks) >= num_workers * 2:
+                        time.sleep(0.1)
+                        completed_tasks = []
+                        for task_info in active_tasks:
+                            task, start_time = task_info
+                            
+                            # Check for timeout
+                            if time.time() - start_time > 300:
+                                print(f"Warning: Batch processing timeout during wait, terminating task")
+                                try:
+                                    task.terminate()
+                                except:
+                                    pass
+                                completed_tasks.append(task_info)
+                                continue
+                            
+                            if task.ready():
+                                try:
+                                    processed_count = task.get(timeout=10)
+                                    pbar.update(processed_count)
+                                    completed_tasks.append(task_info)
+                                except Exception as e:
+                                    print(f"Batch processing error during wait: {e}")
+                                    completed_tasks.append(task_info)
+                        
+                        for task_info in completed_tasks:
+                            active_tasks.remove(task_info)
+            
+            # Process remaining batch
+            if batch:
+                task = pool.apply_async(
+                    process_batch, 
+                    (batch, output_dir, split_name)
+                )
+                active_tasks.append((task, time.time()))
+            
+            # Wait for all remaining tasks to complete with timeout
+            for task_info in active_tasks:
+                task, start_time = task_info
+                try:
+                    # Wait with timeout
+                    remaining_time = max(10, 300 - (time.time() - start_time))
+                    processed_count = task.get(timeout=remaining_time)
+                    pbar.update(processed_count)
+                except Exception as e:
+                    print(f"Final batch processing error: {e}")
+                    try:
+                        task.terminate()
+                    except:
+                        pass
         
-        # Process remaining batch
-        if batch:
-            task = pool.apply_async(
-                process_batch, 
-                (batch, output_dir, split_name)
-            )
-            active_tasks.append(task)
-        
-        # Wait for all remaining tasks to complete
-        for task in active_tasks:
-            try:
-                processed_count = task.get()
-                pbar.update(processed_count)
-            except Exception as e:
-                print(f"Final batch processing error: {e}")
+    except KeyboardInterrupt:
+        print(f"\nInterrupted by user. Progress saved - you can resume later.")
+        pool.terminate()
+        pool.join()
+        raise
+    except Exception as e:
+        print(f"Error in parallel processing: {e}")
+        raise
     
     pbar.close()
 

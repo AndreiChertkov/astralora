@@ -16,6 +16,8 @@ from .layer import AstraloraLayer
 
 class Astralora:
     def __init__(self, task, with_neptune=False, master_process=True):
+        self.task = task
+
         self.args, args_parser = config(task)
         # self.args = modify_gpu_args_for_cryri(self.args)
 
@@ -164,10 +166,17 @@ class Astralora:
 
         self.w0 = params[0].data.detach().clone()
 
+        if self.task == 'nanogpt_fineweb': # TODO: note this
+            epochs = self.args.num_iterations
+        else:
+            epochs = self.args.epochs
+
         self.optimizer = torch.optim.Adam(params,
             lr=0.01)
-        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer,
-            T_max=self.args.epochs, eta_min=1e-6)
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            self.optimizer,
+            T_max=epochs,
+            eta_min=1e-6)
 
         # self.optimizer = CustomSGD(params,
         #     lr=1e-2,
