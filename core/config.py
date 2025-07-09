@@ -84,6 +84,11 @@ def _config_astralora(task, parser):
         const=True,
         default=False)
 
+    parser.add_argument('--lr_bb',
+        type=float,
+        help='Learning rate for the BB layer',
+        default=0.01)
+
 
 def _config_base(task, parser):
     parser.add_argument('--name',
@@ -135,7 +140,7 @@ def _config_base(task, parser):
 
     parser.add_argument('--save_model',
         type=lambda x: bool(strtobool(x)),
-        help='Do we auto-save model after train',
+        help='Do we save model into file after train',
         nargs='?',
         const=True,
         default=False)
@@ -149,15 +154,15 @@ def _config_base(task, parser):
     
 
 def _config_cnn_cifar(task, parser):
-    parser.add_argument('--batch_size',
-        type=int,
-        help='Batch size',
-        default=512)
-
     parser.add_argument('--epochs',
         type=int,
         help='Number of training epochs',
         default=50)
+
+    parser.add_argument('--batch_size',
+        type=int,
+        help='Batch size',
+        default=512)
 
     parser.add_argument('--lr',
         type=float,
@@ -173,6 +178,16 @@ def _config_ecapa_urbansound8k(task, parser):
 
 
 def _config_nanogpt_fineweb(task, parser):
+    parser.add_argument('--epochs',
+        type=int,
+        help='Number of iterations ("epochs") to run',
+        default=5000)
+
+    parser.add_argument('--bb_num',
+        type=int,
+        help='Number of BB-layers (it should be <= num_blocks)',
+        default=1)
+
     parser.add_argument('--device_total',
         type=int,
         help='Number of required GPU devices to use',
@@ -221,15 +236,15 @@ def _config_nanogpt_fineweb(task, parser):
         help='Number of blocks inside the base model',
         default=12)
 
+    parser.add_argument('--block_size',
+        type=int,
+        help='Size of the block',
+        default=1024)
+
     parser.add_argument('--num_head',
         type=int,
         help='Number of attention heads inside the base model',
         default=6)
-
-    parser.add_argument('--num_iterations',
-        type=int,
-        help='Number of iterations to run (note: it was 5100 in base repo)',
-        default=5000)
 
     parser.add_argument('--vld_every',
         type=int,
@@ -245,26 +260,21 @@ def _config_nanogpt_fineweb(task, parser):
         type=float,
         help='Learning rate for transformer.h parameters',
         default=0.02)
-    
-    parser.add_argument('--lr_bb',
-        type=float,
-        help='Learning rate for bb-layers',
-        default=0.0036)
-    
-    parser.add_argument('--surrogate_lr',
-        type=float,
-        default=0.01)
 
 
 def _config_vgg19_tiny_imagenet(task, parser):
+    parser.add_argument('--epochs',
+        type=int,
+        help='Number of training epochs',
+        metavar='N',
+        default=200)
+
     parser.add_argument('data', metavar='DIR', nargs='?', default='vgg19_tiny/data',
                     help='path to dataset (default: vgg19_tiny/data)')
     parser.add_argument('-a', '--arch', metavar='ARCH', default='vgg19',
                         choices=['vgg19', "vit_b_32"], help='vgg19')
     parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                         help='number of data loading workers (default: 8)')
-    parser.add_argument('--epochs', default=200, type=int, metavar='N',
-                        help='number of total epochs to run')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')
     parser.add_argument('-b', '--batch-size', default=512, type=int,

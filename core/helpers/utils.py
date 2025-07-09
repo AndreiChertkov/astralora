@@ -97,6 +97,7 @@ def init_seed(seed=1):
 
 
 def modify_gpu_args_for_cryri(args):
+    raise NotImplementedError('Should check it')
     # Get the number of requested GPUs from args.gpus:
     requested_gpus = [int(g.strip()) for g in args.gpus.split(',')]
     num_requested = len(requested_gpus)

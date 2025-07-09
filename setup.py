@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="astralora",
-    version="0.1",
+    version="0.2",
     packages=find_packages(),
     install_requires=[
         "datasets",
@@ -23,6 +23,5 @@ setup(
         "tensorboard",
         "scikit-learn",
         "speechbrain",
-        "pillow"
-    ],
+        "pillow"],
 ) 

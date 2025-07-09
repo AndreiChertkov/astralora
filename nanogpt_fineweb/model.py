@@ -14,7 +14,7 @@ class Model(nn.Module):
         self.transformer = nn.ModuleDict(dict(
             wte = nn.Embedding(config.vocab_size, config.n_embd),
             h = nn.ModuleList([
-                Block(config, n) for n in range(config.n_layer)])))
+                Block(config, n) for n in range(config.num_blocks)])))
 
         self._head_init()
         

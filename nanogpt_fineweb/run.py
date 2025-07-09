@@ -1,4 +1,4 @@
-"""Train the GPT2-like model on FineWeb datacet.
+"""Train the GPT2-like model on FineWeb dataset.
 
 See:
 - https://github.com/KellerJordan/modded-nanogpt
@@ -10,7 +10,7 @@ Usage:
 
 """
 import os
-import time
+from time import perf_counter as tpc
 import torch
 import torch.distributed as dist
 from torch.distributed.elastic.multiprocessing.errors import record
@@ -69,11 +69,13 @@ def run():
 
     # --- Init the model:
     model = Model(SimpleNamespace(
-        vocab_size=50304, block_size=1024,
-        n_layer=args.num_blocks, n_head=args.num_head, n_embd=768*2))
+        vocab_size=50304, block_size=args.block_size,
+        num_blocks=args.num_blocks, n_head=args.num_head, n_embd=768*2))
 
-    model.transformer.h[-1].mlp.c_proj = ast.build(
-        model.transformer.h[-1].mlp.c_proj)
+    assert args.bb_num <= len(model.transformer.h)
+    for num in range(args.bb_num):
+        model.transformer.h[-1-num].mlp.c_fc = ast.build(
+            model.transformer.h[-1-num].mlp.c_fc)
 
     model = model.cuda()
     model.master_process = master_process
@@ -97,16 +99,8 @@ def run():
     # --- Collect parameters for training proccess:
     params1 = model_raw.get_head_params()
     params2 = [] # model_raw.transformer.h.parameters()
-    params3 = []
-    bb_param_ids = set()
-    for module in model_raw.transformer.h.modules():
-        if hasattr(module, 'bb_wrapper'):
-            for param in module.parameters():
-                bb_param_ids.add(id(param))
     for param in model_raw.transformer.h.parameters():
-        if id(param) in bb_param_ids:
-            params3.append(param)
-        else:
+        if not hasattr(param, 'ast_bb'):
             params2.append(param)
 
     # --- Init the optimizers:
@@ -121,47 +115,33 @@ def run():
         rank=ddp_rank,
         world_size=ddp_world_size)
     optimizers = [optimizer1, optimizer2]
-
-    """
-    if len(params3) > 0:
-        optimizer3 = torch.optim.AdamW(params3,
-            lr=args.lr_bb,
-            betas=(0.9, 0.95),
-            weight_decay=args.weight_decay,
-            fused=True)
-        optimizers.append(optimizer3)
-    """
     
     # --- Set the learning rate decay scheduler (linear warmup and warmdown):
     def get_lr(it):
-        assert it <= args.num_iterations
+        assert it <= args.epochs
         # 1) linear warmup for warmup_iters steps:
         if it < args.warmup_iters:
             return (it+1) / args.warmup_iters
         # 2) constant lr for a while:
-        elif it < args.num_iterations - args.warmdown_iters:
+        elif it < args.epochs - args.warmdown_iters:
             return 1.0
         # 3) linear warmdown:
         else:
-            decay_ratio = (args.num_iterations - it) / args.warmdown_iters
+            decay_ratio = (args.epochs - it) / args.warmdown_iters
             return decay_ratio
     schedulers = [torch.optim.lr_scheduler.LambdaLR(opt, get_lr)
         for opt in optimizers]
 
     # --- Start the clock:
-    training_time_ms = 0
     torch.cuda.synchronize()
-    t0 = time.time()
+    t_start = tpc()
 
     # --- Training loop:
     loader_trn.reset()
-    for step in range(args.num_iterations):
-        last_step = (step == args.num_iterations-1)
+    for step in range(args.epochs):
+        print(f'DEBUG | Current step {step}; time: {tpc()-t_start:.2f}')
 
-        if step == 10:
-            # We do not count first 10 steps for timing, which are slow
-            training_time_ms = 0
-            t0 = time.time()
+        last_step = (step == args.epochs-1)
         timed_steps = float('nan') if step <= 11 else (step - 10) + 1
 
         # --- Evaluate the validation dataset:
@@ -169,9 +149,10 @@ def run():
         do_vld = do_vld or args.vld_every > 0 and (step+1) % args.vld_every == 0
         do_vld = do_vld or last_step
         if do_vld:
+            t_start_vld = tpc()
+
             # Stop the clock:
             torch.cuda.synchronize()
-            training_time_ms += 1000 * (time.time() - t0)
             
             # Run validation batches:
             model.eval()
@@ -188,7 +169,8 @@ def run():
 
             # Start the clock again:
             torch.cuda.synchronize()
-            t0 = time.time()
+
+            print(f'DEBUG | VLD time: {tpc()-t_start_vld:.2f}')
 
         # --- Train the model:
         model.train()
@@ -218,8 +200,9 @@ def run():
         ast.step_before()
 
         if master_process and do_vld:
-            approx_time = training_time_ms + 1000 * (time.time() - t0)
-            ast.step_end(step, loss_trn.item(), loss_vld, t=approx_time/1000)
+            l_trn = float(loss_trn.detach().cpu().numpy().item())
+            l_vld = float(loss_vld.detach().cpu().numpy())
+            ast.step_end(step, l_trn, l_vld, t=tpc()-t_start)
 
         if last_step:
             break

@@ -2,19 +2,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import torch
+import warnings
 
 
+from .bb_layers.bb_layer_mrr import build_weight_from_phase as build_weight_from_phase_for_mrr
 from .config import config
 from .helpers.utils import init_log
 from .helpers.utils import init_neptune
 from .helpers.utils import init_path
 from .helpers.utils import init_seed
-from .helpers.utils import modify_gpu_args_for_cryri
 from .helpers.utils import save_args_to_markdown
 from .layer import AstraloraLayer
-
-from .bb_layers.bb_layer_mrr import build_weight_from_phase
-import warnings
 
 
 class Astralora:
@@ -22,7 +20,6 @@ class Astralora:
         self.task = task
 
         self.args, args_parser = config(task)
-        # self.args = modify_gpu_args_for_cryri(self.args)
 
         # torch.backends.cudnn.benchmark = True
         
@@ -42,8 +39,7 @@ class Astralora:
                 self.args.name, 'set_neptune_env.sh', self.args)
             self.log('Use neptune. See: ' + self.url, 'res')
         else:
-            self.nepman = None
-            self.nepman_url = ''
+            self.nepman, self.nepman_url = None, ''
 
         if master_process:
             save_args_to_markdown(self.args, args_parser, self.path('args.md'))
@@ -56,6 +52,11 @@ class Astralora:
 
         self.times = []
 
+        self.bb_num = 0
+
+        if not 'epochs' in self.args:
+            raise ValueError('Number of epochs is not provided')
+
     def build(self, layer):
         d_inp = layer.in_features
         d_out = layer.out_features
@@ -64,6 +65,7 @@ class Astralora:
             return layer
 
         if self.args.mode == 'bb':
+            self.bb_num += 1
             return AstraloraLayer(
                 d_inp=d_inp,
                 d_out=d_out,
@@ -79,7 +81,7 @@ class Astralora:
         raise NotImplementedError
 
     def done(self, model=None):
-        if model is not None:
+        if model is not None and self.args.save_model:
             torch.save(model.state_dict(), self.path('model.pth'))
 
         np.savez_compressed(self.path('result.npz'), res={
@@ -88,14 +90,16 @@ class Astralora:
             'losses_tst': self.losses_tst,
             'accs_trn': self.accs_trn,
             'accs_tst': self.accs_tst,
-            'times': self.times})
+            'times': self.times,
+            'bb_num': self.bb_num})
 
         self.plot()
 
-        if self.args.mode == 'bb':
-            self.plot_bb_w()
-
-            self.plot_bb_w_matrix()
+        for num in range(self.bb_num):
+            if self.args.mode == 'bb':
+                self.plot_bb_w(num)
+            if self.args.mode == 'bb' and self.args.bb_kind == 'mrr':
+                self.plot_bb_w_matrix_for_mrr(num)
         
     def path(self, fpath):
         return os.path.join(self.args.folder, fpath)
@@ -104,35 +108,35 @@ class Astralora:
         if len(self.losses_trn) > 0 or len(self.losses_tst) > 0:        
             plt.figure(figsize=(6, 4))
             if len(self.losses_trn) > 0:
-                plt.plot(self.losses_trn, label='Train Loss')
+                plt.plot(self.losses_trn, label='Train')
             if len(self.losses_tst) > 0:
-                plt.plot(self.losses_tst, label='Test Loss')
+                plt.plot(self.losses_tst, label='Test')
             plt.xlabel('Epochs')
-            plt.ylabel('Loss')
+            plt.ylabel('Loss value')
             plt.legend()
-            plt.title('Loss Evolution')
             plt.tight_layout()
             plt.savefig(self.path('_plot_loss.png'))
+            plt.close()
 
         if len(self.accs_trn) > 0 or len(self.accs_tst) > 0:
             plt.figure(figsize=(6, 4))
             if len(self.accs_trn) > 0:
-                plt.plot(np.array(self.accs_trn) * 100, label='Train Accuracy')
+                plt.plot(np.array(self.accs_trn) * 100, label='Train')
             if len(self.accs_tst) > 0:
-                plt.plot(np.array(self.accs_tst) * 100, label='Test Accuracy')
+                plt.plot(np.array(self.accs_tst) * 100, label='Test')
             plt.xlabel('Epochs')
             plt.ylabel('Accuracy (%)')
             plt.legend()
-            plt.title('Accuracy Evolution')
             plt.tight_layout()
             plt.savefig(self.path('_plot_acc.png'))
+            plt.close()
 
-    def plot_bb_w(self, epoch=None):
-        params = [p for k, p in self.model.named_parameters()
-            if hasattr(p, 'ast_bb')]
+    def plot_bb_w(self, num=0, epoch=None):
+        params = [p for p in self.model.parameters()
+            if getattr(p, 'ast_bb_weight', False)]
 
-        w0 = self.w0.cpu().numpy()
-        w1 = params[0].data.detach().clone().cpu().numpy()
+        w0 = self.w0[num].cpu().numpy()
+        w1 = params[num].data.detach().clone().cpu().numpy()
 
         plt.figure(figsize=(12, 7))
 
@@ -147,32 +151,37 @@ class Astralora:
             plt.title(f'BB parameters for epoch: {epoch+1}', fontsize=16)
         else:
             plt.title(f'BB parameters', fontsize=16)
+        
         plt.xlabel('Value', fontsize=12)
         plt.ylabel('Density' if not log_scale else 'Log Density', fontsize=12)
+        
         plt.legend(fontsize=14)
         plt.grid(True, alpha=0.3)
         
-        plt.savefig(self.path('bb_w.png'), dpi=300, bbox_inches='tight')
+        fpath = self.path(f'bb_{num}_w.png')
+        plt.savefig(fpath, dpi=300, bbox_inches='tight')
         plt.close()
 
-    def plot_bb_w_matrix(self, epoch=None):
-        params = [p for k, p in self.model.named_parameters()
-            if hasattr(p, 'ast_bb')]
+    def plot_bb_w_matrix_for_mrr(self, num=0, epoch=None):
+        params = [p for p in self.model.parameters()
+            if getattr(p, 'ast_bb_weight', False)]
 
-        w0 = self.w0 # .cpu().numpy()
-        w1 = params[0].data.detach().clone() # .cpu().numpy()
+        w0 = self.w0[num]
+        w1 = params[num].data.detach().clone()
 
         if self.args.bb_kind == 'mrr':
-            
-            A0 = build_weight_from_phase(w0).cpu().numpy()
-            A1 = build_weight_from_phase(w1).cpu().numpy()
+            A0 = build_weight_from_phase_for_mrr(w0).cpu().numpy()
+            A1 = build_weight_from_phase_for_mrr(w1).cpu().numpy()
         elif self.args.bb_kind == 'matvec':
             A0 = w0.cpu().numpy()
             A1 = w1.cpu().numpy()
         else:
             warnings.warn(f'BB kind {self.args.bb_kind} not supported for plotting entire matrix')
 
+        plt.figure(figsize=(12, 7))
+
         log_scale = False
+        
         plt.hist(A0.flatten(), bins=500, alpha=0.7, 
                 label='Initial', density=True, log=log_scale, color='green')
         plt.hist(A1.flatten(), bins=500, alpha=0.4, 
@@ -182,18 +191,21 @@ class Astralora:
             plt.title(f'BB parameters for epoch: {epoch+1}', fontsize=16)
         else:
             plt.title(f'BB parameters', fontsize=16)
+        
         plt.xlabel('Value', fontsize=12)
         plt.ylabel('Density' if not log_scale else 'Log Density', fontsize=12)
+        
         plt.legend(fontsize=14)
         plt.grid(True, alpha=0.3)
         
-        plt.savefig(self.path('bb_w_matrix.png'), dpi=300, bbox_inches='tight')
+        fpath = self.path(f'bb_{num}_w_matrix.png')
+        plt.savefig(fpath, dpi=300, bbox_inches='tight')
         plt.close()
 
     def prepare(self, model):
         self.model = model
 
-        params =  [p for p in model.parameters() 
+        params = [p for p in self.model.parameters()
             if getattr(p, 'ast_bb', False)]
 
         if self.args.mode == 'digital' and len(params) > 0:
@@ -201,30 +213,20 @@ class Astralora:
         if self.args.mode == 'bb' and len(params) == 0:
             raise ValueError
 
+        if self.args.mode == 'bb' and len(params) != self.bb_num * 2:
+            raise ValueError
+
         if self.args.mode == 'digital':
             return
 
-        self.w0 = params[0].data.detach().clone()
-
-        if self.task == 'nanogpt_fineweb': # TODO: note this
-            epochs = self.args.num_iterations
-        else:
-            epochs = self.args.epochs
-
-        self.optimizer = torch.optim.Adam(params,
-            lr=0.01)
+        self.optimizer = torch.optim.Adam(params, lr=self.args.lr_bb)
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            self.optimizer,
-            T_max=epochs,
-            eta_min=1e-6)
+            self.optimizer, T_max=self.args.epochs, eta_min=1e-6)
 
-        # self.optimizer = CustomSGD(params,
-        #     lr=1e-2,
-        #     momentum=0.95,
-        #     nesterov=True,
-        #     weight_decay=0.1,
-        #     cycle_length=100)
-        # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
+        # Initial parameters of the BB layers:
+        params = [p for p in self.model.parameters()
+            if getattr(p, 'ast_bb_weight', False)]
+        self.w0 = [p.data.detach().clone() for p in params]
 
     def step(self):
         if self.args.mode == 'digital':
@@ -280,51 +282,7 @@ class Astralora:
 
         self.log(text)
 
-        #if self.args.mode == 'bb':
-        #    self.plot_bb_w(epoch)
-
     def _args_to_dict(self):
         def _check(v):
             return isinstance(v, (bool, int, float, str))
         return {n: v for n, v in vars(self.args).items() if _check(v)}
-
-
-class CustomSGD(torch.optim.Optimizer):
-    def __init__(self, params, lr=0.1, momentum=0.95, nesterov=True, 
-                 weight_decay=1e-4, cycle_length=100):
-        defaults = dict(lr=lr, momentum=momentum, nesterov=nesterov,
-            weight_decay=weight_decay, cycle_length=cycle_length)
-        
-        super().__init__(params, defaults)
-        
-        self.step_counter = 0
-        
-    def step(self, closure=None):
-        self.step_counter += 1
-        
-        for group in self.param_groups:
-            if self.step_counter % group['cycle_length'] == 0:
-                for p in group['params']:
-                    if p in self.state:
-                        self.state[p].pop('momentum_buffer', None)
-            
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-                grad = p.grad.data
-                state = self.state[p]
-                
-                if group['weight_decay'] != 0:
-                    grad = grad.add(p.data, alpha=group['weight_decay'])
-                
-                if 'momentum_buffer' not in state:
-                    state['momentum_buffer'] = torch.zeros_like(p.data)
-                
-                buf = state['momentum_buffer']
-                
-                buf.mul_(group['momentum']).add_(grad)
-                
-                if group['nesterov']:
-                    p.data.add_(buf.mul(group['momentum']).add(grad), alpha=-group['lr'])
-                else:
-                    p.data.add_(buf, alpha=-group['lr'])

@@ -12,6 +12,7 @@ gamma = torch.pi / v_pi**2
 
 mrr_tr_to_weight = lambda x: 2 * x - 1
 
+
 def build_weight_from_phase(phases):
     return mrr_tr_to_weight(mrr_roundtrip_phase_to_tr(phases))
     

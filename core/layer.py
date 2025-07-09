@@ -1,6 +1,4 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
 
 from .helpers.approximation import approximation
@@ -15,7 +13,7 @@ from .bb_layers.bb_layer_mzi import create_bb_layer_mzi
 from .bb_layers.bb_layer_slm import create_bb_layer_slm
 
 
-class AstraloraLayer(nn.Module):
+class AstraloraLayer(torch.nn.Module):
     def __init__(self, d_inp, d_out, kind, rank, samples_bb, samples_sm, 
                  skip_sm, use_residual, log=print, nepman=None):
         super().__init__()
@@ -31,7 +29,7 @@ class AstraloraLayer(nn.Module):
         self.log = log
         self.nepman = nepman
 
-        self.log('... Init Astralora layer : \n     ' + self.extra_repr())
+        self.log('... Init Astralora layer : \n    ' + self.extra_repr())
 
         if self.kind == 'id':
             self.bb, w0, self.dw = create_bb_layer_id(
@@ -54,10 +52,15 @@ class AstraloraLayer(nn.Module):
         else:
             raise NotImplementedError
         
-        self.w = nn.Parameter(w0)
-        self.scale = nn.Parameter(torch.ones(1))
+        self.w = torch.nn.Parameter(w0)
         self.w.ast_bb = True
+        self.w.ast_bb_weight = True
+        
         self.w_old = None
+
+        self.scale = torch.nn.Parameter(torch.ones(1))
+        self.scale.ast_bb = True
+        self.scale.ast_bb_scale = True
 
         self.device = None
         self.bb_wrapper = None
@@ -86,12 +89,14 @@ class AstraloraLayer(nn.Module):
         y = self.bb_wrapper(x, self.w, self.U, self.S, self.V)
 
         if self.training and self.w_old is not None and not self.skip_sm:
-            self._update_factors(x.detach().clone(), y.detach().clone())
+            self._update_factors() # x.detach().clone(), y.detach().clone()
 
         self.w_old = self.w.data.detach().clone()
             
         y = y.reshape(*shape[:-1], y.shape[-1])
+        
         y = y * self.scale
+        
         if self.use_residual:
             y = y + self._add_residual(x, y)
 
@@ -149,7 +154,7 @@ class AstraloraLayer(nn.Module):
             self.S = S # .data.copy_(S)
             self.V = V # .data.copy_(V)
 
-    def _update_factors(self, x, y, thr=1.E-12):
+    def _update_factors(self, thr=1.E-12):
         with torch.no_grad():
             w_old = self.w_old
             w_new = self.w.data.detach().clone()

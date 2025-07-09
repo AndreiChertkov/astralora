@@ -41,7 +41,7 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 
 We consider the application of our approach `astralora` to different classes of problems (architecture + domain), located in folders: `airbench_cifar`, `cnn_cifar`, `ecapa_urbansound8k`, `nanogpt_fineweb`, `vgg19_tiny` [TODO: rename it!]. Each of the designated folders contains a main script `run.py`, which provides details on setting up and running.
 
-We also ran various runs of calculations on clusters using script `autorun.py`, `script.py`, and shell scripts `tmp*.sh` [TODO: replace it in the subfolder].
+We also ran various runs of calculations on clusters using script `autorun.py`, `script.py`, and shell scripts `shell_scripts/tmp*.sh`.
 
 
 ## Authors

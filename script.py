@@ -2,9 +2,9 @@
 
 Run it as:
 
-- "python script.py --task TASK_NAME ...ARS_TO_RUN_THE_SCRIPT..."
+- "python script.py --task TASK_NAME ...ARGS_TO_RUN_THE_SCRIPT..."
 
-You can provide the number of required devices (1, 2, 4, or 8) by "device_num" arg, and if you set "torchrun 1" then code will be runned by "torchrun" command.
+You can provide the number of required devices (1, 2, 4, or 8) by "device_num" argument, and you could set "torchrun 1" to run the python script for the task inside "script.py" by "torchrun" command.
 
 """
 import os
@@ -18,7 +18,8 @@ import time
 from core.config import config
 
 
-TASKS = ['airbench_cifar', 'cnn_cifar', 'ecapa_urbansound8k',  'nanogpt_fineweb', 'vgg19_tiny']
+TASKS = ['airbench_cifar', 'cnn_cifar', 'ecapa_urbansound8k',  
+    'nanogpt_fineweb', 'vgg19_tiny']
 
 
 ARGS_OWN = {

@@ -44,10 +44,6 @@ def backprop_wrap(bb_func, generator, samples_w=1, shift_w=1., skip_sm=False):
                 grad_w = _backprop_stochastic(bb_func, x, w, grad_output, 
                     generator, samples_w, shift_w)
 
-            # print('--- DEBUG')
-            # print('grad_output', torch.norm(grad_output), 'grad_x', torch.norm(grad_x), 'grad_w', torch.norm(grad_w), 'w', torch.norm(w))
-            # print(w[0], w[1], w[-1])
-
             return grad_x, grad_w, None, None, None
 
     return FuncCustom.apply
