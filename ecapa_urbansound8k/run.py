@@ -56,6 +56,7 @@ class UrbanSound8kBrain(sb.core.Brain):
     """Class for sound class embedding training"""
     def __init__(self, ast, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
         self.ast = ast
         self.t_start = tpc()
 
@@ -491,12 +492,11 @@ def run(task='ecapa_urbansound8k'):
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["dataloader_options"])
 
-    # Load the best checkpoint for evaluation:
-    #test_stats = model.evaluate(
-    #    test_set=datasets["test"],
-    #    min_key="error",
-    #    progressbar=True,
-    #    test_loader_kwargs=hparams["dataloader_options"])
+    test_stats = model.evaluate(
+        test_set=datasets["test"],
+        min_key="error",
+        progressbar=True,
+        test_loader_kwargs=hparams["dataloader_options"])
 
     ast.done()
 
