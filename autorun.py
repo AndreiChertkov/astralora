@@ -116,6 +116,9 @@ def _check(args):
 
 
 def _run(args):
+    if args.task == 'nanogpt_fineweb': # TODO: note this
+        args.torchrun = 1
+
     if _check(args):
         command = _args_to_command(args)
         try:
@@ -140,6 +143,6 @@ if __name__ == '__main__':
     # kind = sys.argv[2] if len(sys.argv) > 2 else 'matvec'
     # autorun(task, kind)
 
-    for task in ['airbench_cifar', 'cnn_cifar', 'nanogpt_fineweb', 'ecapa_urbansound8k']:
+    for task in ['nanogpt_fineweb', 'airbench_cifar', 'cnn_cifar', 'ecapa_urbansound8k', 
         for kind in ['matvec', 'slm', 'mrr']:
             autorun_spec(task, kind)
