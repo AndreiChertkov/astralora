@@ -159,16 +159,16 @@ class Astralora:
         params = [p for k, p in self.model.named_parameters()
             if hasattr(p, 'ast_bb')]
 
-        w0 = self.w0.cpu().numpy()
-        w1 = params[0].data.detach().clone().cpu().numpy()
+        w0 = self.w0 # .cpu().numpy()
+        w1 = params[0].data.detach().clone() # .cpu().numpy()
 
         if self.args.bb_kind == 'mrr':
             
-            A0 = build_weight_from_phase(w0)
-            A1 = build_weight_from_phase(w1)
+            A0 = build_weight_from_phase(w0).cpu().numpy()
+            A1 = build_weight_from_phase(w1).cpu().numpy()
         elif self.args.bb_kind == 'matvec':
-            A0 = w0
-            A1 = w1
+            A0 = w0.cpu().numpy()
+            A1 = w1.cpu().numpy()
         else:
             warnings.warn(f'BB kind {self.args.bb_kind} not supported for plotting entire matrix')
 

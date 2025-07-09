@@ -23,7 +23,10 @@ def create_bb_layer_mrr(d_inp, d_out):
         # phase = torch.arccos(phase)
         # phase = torch.zeros_like(phase)
         # phase = torch.nn.init.uniform_(phase, 0, 2*math.pi) # Initialize uniform angles between 0 and 2π
-        torch.nn.init.uniform_(phase, math.pi/2 - 0.1, math.pi/2 + 0.1)
+        #torch.nn.init.uniform_(phase, math.pi/2 - 0.1, math.pi/2 + 0.1)
+
+        torch.nn.init.uniform_(phase, 0.01, math.pi / 4)
+
         phase = phase.reshape(-1)
         return phase
    
