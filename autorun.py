@@ -11,12 +11,12 @@ import sys
 from types import SimpleNamespace
 
 
-BB_KINDS = ['matvec', 'monarch', 'mrr', 'slm']
+BB_KINDS = ['monarch', 'mrr', 'slm', 'matvec']
+RANKS = [1, 5, 10, 50, 100]
 
 
 def autorun(task, kind_only=None):
     for kind in BB_KINDS:
-
         print(f'>>> Run task "{task}" for the layer "{kind}".')
         
         if kind_only is not None and kind != kind_only:
@@ -40,40 +40,47 @@ def autorun(task, kind_only=None):
     
 
 def autorun_airbench_cifar(task, kind):
+    root = f'{task}/result_{kind}'
     seeds = [1, 2, 3, 4, 5]
     ranks = [1, 3, 5, 7, 10, 50, 100]
     samples = [1, 10, 100, 1000]
 
-    args = SimpleNamespace(**{
-        'task': task,
-        'bb_kind': kind,
-        'root': f'{task}/result_{kind}'})
-
     for seed in seeds:
-        args.seed = seed
-
-        args.mode = 'digital'
+        args = SimpleNamespace(**{'task': task, 'root': root})
         args.name = f'digital_seed{seed}'
+        args.mode = 'digital'
+        args.seed = seed
         _run(args)
 
-        args.mode = 'bb'
-
         for rank in ranks:
+            args = SimpleNamespace(**{'task': task, 'root': root})
+            args.name = f'bb_{kind}_rank{rank}_baseline_gd-gd_seed{seed}'
+            args.mode = 'bb'
+            args.seed = seed
             args.rank = rank
-            
-            args.name = f'bb_{kind}_rank{rank}_baseline_gd&gd_seed{seed}'
+            args.bb_kind = kind
             args.samples_bb = -1
             args.samples_sm = 0
             args.skip_sm = True
             _run(args)
 
-            args.name = f'bb_{kind}_rank{rank}_baseline_gd&svd_seed{seed}'
+            args = SimpleNamespace(**{'task': task, 'root': root})
+            args.name = f'bb_{kind}_rank{rank}_baseline_gd-svd_seed{seed}'
+            args.mode = 'bb'
+            args.seed = seed
+            args.rank = rank
+            args.bb_kind = kind
             args.samples_bb = -1
             args.samples_sm = -1
             _run(args)
 
             for s in samples:
+                args = SimpleNamespace(**{'task': task, 'root': root})
                 args.name = f'bb_{kind}_rank{rank}_samples{s}_seed{seed}'
+                args.mode = 'bb'
+                args.seed = seed
+                args.rank = rank
+                args.bb_kind = kind
                 args.samples_bb = s
                 args.samples_sm = s
                 _run(args)
@@ -83,18 +90,46 @@ def autorun_cnn_cifar(task, kind):
     raise NotImplementedError
 
 
-def autorun_ecapa_urbansound8k(task, kind):
-    raise NotImplementedError
-
-
-def autorun_nanogpt_fineweb(task, kind):
+def autorun_ecapa_urbansound8k(task, kind, samples_bb=1000, samples_sm=1000):
     args = SimpleNamespace(**{
         'task': task,
-        'bb_kind': kind,
+        'root': f'{task}/result_{kind}'})
+
+    args.name = f'digital'
+    args.mode = 'digital'
+    _run(args)
+
+    for rank in RANKS:
+        args.name = f'bb_{kind}_rank{rank}'
+        args.mode = 'bb'
+        args.rank = rank
+        args.bb_kind = kind
+        args.samples_bb = samples_bb
+        args.samples_sm = samples_sm
+        _run(args)
+
+
+def autorun_nanogpt_fineweb(task, kind, samples_bb=100, samples_sm=1000):
+    print('\n\nWARNING: draft run\n\n')
+
+    args = SimpleNamespace(**{
+        'task': task,
         'root': f'{task}/result_{kind}',
         'torchrun': 1})
 
-    raise NotImplementedError
+    args.name = f'digital'
+    args.mode = 'digital'
+    _run(args)
+
+    for rank in RANKS:
+        args.name = f'bb_{kind}_rank{rank}_baseline_gd' # TODO: change
+        args.mode = 'bb'
+        args.rank = rank
+        args.bb_kind = kind
+        args.bb_num = 12
+        args.samples_bb = -1 # samples_bb # TODO: move back
+        args.samples_sm = samples_sm
+        _run(args)
 
 
 def autorun_spec(task, kind):

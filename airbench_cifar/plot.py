@@ -11,6 +11,7 @@ mpl.rcParams.update({
 import matplotlib.pyplot as plt
 
 
+BB_KINDS = ['monarch', 'mrr', 'slm', 'matvec']
 seeds = [1, 2, 3, 4, 5]
 ranks = [1, 3, 5, 7, 10, 50, 100]
 samples_list = [1, 10, 100, 1000][::-1]
@@ -19,7 +20,7 @@ Y_TICKS = [
     ['', 50, '', 60, '', 70, '', 80, '', 90, '', 100]]
 
 
-def load(base_dir):
+def load(kind, base_dir, bs='gd-svd'):
     results = {s: [] for s in samples_list}
     results['digital'] = []
     results['baseline'] = []
@@ -29,12 +30,12 @@ def load(base_dir):
     results['digital'] = digital_accs
 
     for rank in ranks:
-        exp_name = f"bb_matvec_rank{rank}_baseline"
+        exp_name = f"bb_{kind}_rank{rank}_baseline_{bs}"
         accs = load_one(base_dir, exp_name)
         results['baseline'].append(accs)
 
         for samples_val in samples_list:
-            exp_name = f"bb_matvec_rank{rank}_samples{samples_val}"
+            exp_name = f"bb_{kind}_rank{rank}_samples{samples_val}"
             accs = load_one(base_dir, exp_name)
             results[samples_val].append(accs)
 
@@ -63,8 +64,8 @@ def plot_line(x, y, label, linestyle='-', linewidth=4,
     plt.fill_between(x, y_avg - dy, y_avg + dy, alpha=alpha)
 
 
-def plot(base_dir="result", fpath_plot="result.png"):
-    results = load(base_dir)
+def plot(kind, base_dir="result", fpath_plot="result.png"):
+    results = load(kind, base_dir)
     
     fig, ax = plt.subplots(1, 1, figsize=(16, 12))
     plt.subplots_adjust(wspace=0.)
@@ -76,7 +77,7 @@ def plot(base_dir="result", fpath_plot="result.png"):
         "Digital", linestyle='--', linewidth=7, marker=None)
 
     plot_line(ranks, results['baseline'],
-        "Baseline", linestyle='--', linewidth=7, marker='o', markersize=16)
+        "GD+SVD", linestyle='--', linewidth=7, marker='o', markersize=16)
 
     for samples_val in samples_list:
         label = f"{samples_val} sample{'s' if samples_val > 1 else ''}"
@@ -94,14 +95,13 @@ def plot(base_dir="result", fpath_plot="result.png"):
     ax.get_xaxis().tick_bottom()
     ax.get_yaxis().tick_left()
 
-    plt.savefig(fpath_plot, dpi=300, bbox_inches='tight')
+    plt.savefig(fpath_plot, dpi=400, bbox_inches='tight')
     plt.close(fig)
     print('Saved plot in:', fpath_plot)
 
 
 if __name__ == '__main__':
-    plot(base_dir="result_matvec",
-        fpath_plot="_plot/airbench_cifar_result_matvec.png")
-    
-    plot(base_dir="result_matvec_fixed", 
-        fpath_plot="_plot/airbench_cifar_result_matvec_samples_bb_1000.png")
+    os.makedirs("_plot", exist_ok=True)
+    for kind in BB_KINDS:
+        plot(kind, base_dir=f"result_{kind}",
+            fpath_plot=f"_plot/airbench_cifar_result_{kind}.png")
