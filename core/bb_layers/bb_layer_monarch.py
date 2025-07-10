@@ -3,6 +3,7 @@
 Monarch layer implementation following the same pattern as other bb layers.
 
 """
+import math
 import torch
 import torch.nn as nn
 import numpy as np
@@ -55,8 +56,9 @@ def create_bb_layer_monarch(d_inp, d_out):
         return output
 
     w = torch.empty(d)
-    torch.nn.init.uniform_(w, a=0, b=torch.pi)
-    
+    # torch.nn.init.uniform_(w, a=0, b=torch.pi)
+    torch.nn.init.uniform_(w, math.pi/2 - 0.1, math.pi/2 + 0.1)
+
     dw = 1.E-4
     
     return bb, w, dw
