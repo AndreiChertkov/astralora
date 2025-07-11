@@ -423,6 +423,9 @@ def run(task='ecapa_urbansound8k'):
     torch.backends.cudnn.benchmark = True
 
     ast = Astralora(task, with_neptune=False)
+
+    sb.utils.seed.seed_everything(ast.args.seed)
+
     folder = ast.args.folder + '/speechbrain_output'
 
     fpath = task + '/config.yaml'
