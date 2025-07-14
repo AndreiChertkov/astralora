@@ -99,9 +99,8 @@ def autorun_ecapa_urbansound8k(task, kind, samples_bb=1000, samples_sm=1000):
     args.mode = 'digital'
     _run(args)
 
-    args.name = f'bb_{kind}_rank{rank}_baseline_gd-gd'
+    args.name = f'bb_{kind}_baseline_gd-gd'
     args.mode = 'bb'
-    args.rank = rank
     args.bb_kind = kind
     args.samples_bb = -1
     args.samples_sm = 0
