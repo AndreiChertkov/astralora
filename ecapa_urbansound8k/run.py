@@ -432,7 +432,8 @@ def run(task='ecapa_urbansound8k'):
     with open(fpath, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, {
             "output_folder": folder + '/urban_sound',
-            "number_of_epochs": ast.args.epochs})
+            "number_of_epochs": ast.args.epochs,
+            'batch_size': 64})
 
     sb.create_experiment_directory(
         experiment_directory=folder,

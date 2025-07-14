@@ -174,7 +174,7 @@ def _config_ecapa_urbansound8k(task, parser):
     parser.add_argument('--epochs',
         type=int,
         help='Number of training epochs',
-        default=100)
+        default=50)
 
 
 def _config_nanogpt_fineweb(task, parser):
