@@ -24,6 +24,7 @@ def create_bb_layer_monarch(d_inp, d_out):
 
     def bb(x, w):
         # Pad input if necessary
+        # TODO: ensure, thath this does not hurt expressivity for rectangular layerss
         if x.shape[-1] < d_padded:
             padding = torch.zeros(*x.shape[:-1], d_padded - x.shape[-1], dtype=x.dtype, device=x.device)
             x = torch.cat([x, padding], dim=-1)
@@ -32,6 +33,11 @@ def create_bb_layer_monarch(d_inp, d_out):
         
         x = x.to(torch.cfloat)
         x = x.unflatten(-1, (monarch_dims[0], monarch_dims[1]))
+
+        #permutation of inputs for additional efficiency after multihead attention
+        x = torch.permute(x, (*x.shape[:-1], x.shape[-1], x.shape[-2]))
+
+        
         ps1 = w[0 : monarch_dims[0] * monarch_dims[1] ** 2].view(monarch_dims[0], monarch_dims[1], monarch_dims[1])
         ps2 = w[monarch_dims[0] * monarch_dims[1] ** 2 :].view(monarch_dims[1], monarch_dims[0], monarch_dims[0])
 
