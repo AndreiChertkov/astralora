@@ -35,7 +35,7 @@ def create_bb_layer_monarch(d_inp, d_out):
         x = x.unflatten(-1, (monarch_dims[0], monarch_dims[1]))
 
         #permutation of inputs for additional efficiency after multihead attention
-        x = torch.permute(x, (*x.shape[:-1], x.shape[-1], x.shape[-2]))
+        x = torch.swapaxes(x, -1, -2)
 
         
         ps1 = w[0 : monarch_dims[0] * monarch_dims[1] ** 2].view(monarch_dims[0], monarch_dims[1], monarch_dims[1])
