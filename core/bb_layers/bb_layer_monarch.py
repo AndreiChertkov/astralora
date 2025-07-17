@@ -32,9 +32,10 @@ def create_bb_layer_monarch(d_inp, d_out):
             x = x[..., :d_padded]
         
         x = x.to(torch.cfloat)
-        x = x.unflatten(-1, (monarch_dims[0], monarch_dims[1]))
-
+        # x = x.unflatten(-1, (monarch_dims[0], monarch_dims[1]))
+        
         #permutation of inputs for additional efficiency after multihead attention
+        x = x.unflatten(-1, (monarch_dims[1], monarch_dims[0]))
         x = torch.swapaxes(x, -1, -2)
 
         
