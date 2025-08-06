@@ -13,13 +13,15 @@ from core.bb_layers.bb_layer_mzi import create_bb_layer_mzi
 class TestCreateBBLayerMZI:
     """Test class for create_bb_layer_mzi function."""
     
-    def test_valid_even_dimensions(self):
-        """Test that create_bb_layer_mzi works with valid even N values."""
+    def test_valid_dimensions(self):
+        """Test that create_bb_layer_mzi works with any valid dimensions."""
         # Test cases: (d_inp, d_out, expected_N, expected_params)
+        # New logic: N = max(d_inp, d_out), then round up to even
         test_cases = [
-            (4, 4, 2, 2),      # N=2, minimal case
-            (16, 16, 4, 12),   # N=4, larger case
-            (36, 36, 6, 30),   # N=6, even larger case
+            (4, 4, 4, 12),     # N=4, max(4,4)=4
+            (3, 5, 6, 30),     # N=6, max(3,5)=5->6 (even)
+            (16, 16, 16, 240), # N=16, max(16,16)=16
+            (1, 1, 2, 2),      # N=2, max(1,1)=1->2 (minimum)
         ]
         
         for d_inp, d_out, expected_N, expected_params in test_cases:
@@ -37,23 +39,26 @@ class TestCreateBBLayerMZI:
             # Check learning rate
             assert dw == 0.01, f"Expected dw=0.01, got {dw}"
     
-    def test_invalid_odd_dimensions(self):
-        """Test that create_bb_layer_mzi fails with odd N values."""
-        # Test cases with odd N values
-        odd_cases = [9, 25, 49, 81]  # N=3, 5, 7, 9
+    def test_flexible_dimensions(self):
+        """Test that create_bb_layer_mzi now works with any dimensions (including odd and non-square)."""
+        # Test cases that would have failed in the old implementation
+        flexible_cases = [
+            (9, 9),   # Odd dimensions
+            (5, 8),   # Non-square, different dimensions
+            (10, 15), # Non-square
+            (3, 7),   # Both odd and different
+        ]
         
-        for d_out in odd_cases:
-            with pytest.raises(AssertionError, match="must be even"):
-                create_bb_layer_mzi(d_out, d_out)
-    
-    def test_invalid_non_square_dimensions(self):
-        """Test that create_bb_layer_mzi fails with non-perfect-square dimensions."""
-        # Test cases with non-perfect-square values
-        non_square_cases = [5, 8, 10, 15, 20]
-        
-        for d_out in non_square_cases:
-            with pytest.raises(ValueError, match="must be a perfect square"):
-                create_bb_layer_mzi(d_out, d_out)
+        for d_inp, d_out in flexible_cases:
+            # Should work fine now
+            bb, w0, dw = create_bb_layer_mzi(d_inp, d_out)
+            
+            # Test forward pass
+            x = torch.randn(2, d_inp)
+            output = bb(x, w0)
+            
+            # Verify output shape
+            assert output.shape == (2, d_out), f"Expected (2, {d_out}), got {output.shape}"
     
     def test_bb_function_forward_pass(self):
         """Test that the bb function performs forward pass correctly."""
@@ -165,24 +170,30 @@ class TestMZI3UIntegration:
     """Integration tests for MZI3U components."""
     
     def test_parameter_count_formula(self):
-        """Test that parameter count formula is correct for various N values."""
+        """Test that parameter count formula is correct for various cases."""
         def calculate_expected_params(N):
             """Calculate expected parameter count for given N."""
             num_mzis_0 = (N // 2) * (N // 2)
             num_mzis_1 = (N // 2) * max(0, N // 2 - 1)
             return (num_mzis_0 + num_mzis_1) * 2
         
-        # Test for even N values
-        even_N_values = [2, 4, 6, 8]
-        for N in even_N_values:
-            d_out = N * N
-            expected_params = calculate_expected_params(N)
+        # Test cases: (d_inp, d_out, expected_N)
+        # New logic: N = max(d_inp, d_out), then round up to even
+        test_cases = [
+            (2, 2, 2),     # N = max(2,2) = 2
+            (4, 4, 4),     # N = max(4,4) = 4  
+            (3, 5, 6),     # N = max(3,5) = 5 -> 6 (even)
+            (6, 6, 6),     # N = max(6,6) = 6
+        ]
+        
+        for d_inp, d_out, expected_N in test_cases:
+            expected_params = calculate_expected_params(expected_N)
             
-            bb, w0, _ = create_bb_layer_mzi(d_out, d_out)
+            bb, w0, _ = create_bb_layer_mzi(d_inp, d_out)
             actual_params = w0.shape[0]
             
             assert actual_params == expected_params, \
-                f"For N={N}, expected {expected_params} params, got {actual_params}"
+                f"For d_inp={d_inp}, d_out={d_out} (N={expected_N}), expected {expected_params} params, got {actual_params}"
 
 
 # Pytest fixtures for common test data

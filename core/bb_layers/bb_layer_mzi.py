@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch import tensor, sqrt, cos, sin, exp
-
+import warnings
 import numpy as np
 
 
@@ -22,13 +22,21 @@ def create_bb_layer_mzi(d_inp, d_out):
     Returns:
         tuple: (bb_function, initial_weights, learning_rate_adjustment)
     """
-    # Ensure d_out is a perfect square for MZI3U implementation
-    N = int(np.sqrt(d_out))
-    if N * N != d_out:
-        raise ValueError(f"d_out ({d_out}) must be a perfect square for MZI3U implementation")
+    # Find minimal N that satisfies MZI3U requirements
+    # N must be even and N*N >= max(d_inp, d_out)
+    # This allows the N-dimensional MZI space to accommodate both input and output
     
-    # MZI3U implementation only works for even N values
-    assert N % 2 == 0, f"N ({N}) must be even for MZI3U implementation. d_out must be a perfect square of an even number."
+    # Find minimal N such that N*N can accommodate both dimensions
+    min_N = max(d_inp, d_out)
+    
+    # Make sure N is even (required for MZI3U)
+    if min_N % 2 == 1:
+        N = min_N + 1
+    else:
+        N = min_N
+    
+    # N must also be at least 2 for MZI3U to work
+    N = max(N, 2)
     
     # Calculate number of parameters needed for N x N MZI3U network
     # Each MZI needs 2 parameters (theta and phi)
@@ -58,38 +66,30 @@ def create_bb_layer_mzi(d_inp, d_out):
         Returns:
             Output tensor of shape [..., d_out]
         """
-        # The MZI3U interferometer works with N x N matrices, where N = sqrt(d_out)
-        # We need to reshape the input to match this
-        
-        # First, ensure input has the right number of elements for N x N
-        if x.shape[-1] != N:
-            if x.shape[-1] < N:
-                # Pad input to match N
-                padding = torch.zeros(*x.shape[:-1], N - x.shape[-1], 
-                                    dtype=x.dtype, device=x.device)
-                x_resized = torch.cat([x, padding], dim=-1)
-            else:
-                # Truncate input to match N
-                x_resized = x[..., :N]
+        # Step 1: Pad input from d_inp to N if necessary
+        needed_size = N
+        if x.shape[-1] < needed_size:
+            # Pad input to size N
+            padding = torch.zeros(*x.shape[:-1], needed_size - x.shape[-1], 
+                                dtype=x.dtype, device=x.device)
+            x_padded = torch.cat([x, padding], dim=-1)
+        elif x.shape[-1] > needed_size:
+            # This shouldn't happen since we chose N >= d_inp, but handle it
+            x_padded = x[..., :needed_size]
+            warnings.warn(f"Input dimension {x.shape[-1]} is greater than needed size {needed_size}. Truncating input.")
         else:
-            x_resized = x
+            x_padded = x
             
-        # Apply MZI3U transformation (N -> N)
-        output_mzi = bb_func(x_resized, w)
+        # Step 2: Apply MZI3U transformation (N -> N)
+        output_mzi = bb_func(x_padded, w)
         
-        # Now we need to map from N-dimensional output to d_out-dimensional output
-        # If d_out != N, we need to handle this mapping
-        if d_out != N:
-            if d_out > N:
-                # Pad the output to match d_out
-                padding = torch.zeros(*output_mzi.shape[:-1], d_out - N, 
-                                    dtype=output_mzi.dtype, device=output_mzi.device)
-                output = torch.cat([output_mzi, padding], dim=-1)
-            else:
-                # Truncate the output to match d_out
-                output = output_mzi[..., :d_out]
+        # Step 3: Handle output mapping from N to d_out
+        # Since N*N >= d_out, we can always fit d_out in the N-dimensional output
+        if d_out <= output_mzi.shape[-1]:
+            # Simply take the first d_out elements
+            output = output_mzi[..., :d_out]
         else:
-            output = output_mzi
+            raise ValueError(f"Output dimension {d_out} is greater than the output dimension of the MZI3U layer {output_mzi.shape[-1]}.")
             
         return output
     
