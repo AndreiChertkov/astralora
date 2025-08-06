@@ -30,3 +30,8 @@ tmp.sh
 */data/*
 
 _log*
+
+# Testing and coverage
+htmlcov/
+.coverage
+.pytest_cache/
