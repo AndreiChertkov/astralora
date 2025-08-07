@@ -7,6 +7,9 @@ This module tests the create_bb_layer_mzi function and related MZI3U functionali
 import pytest
 import torch
 import numpy as np
+import time
+import os
+from torch.profiler import profile, record_function, ProfilerActivity
 from core.bb_layers.bb_layer_mzi import create_bb_layer_mzi
 
 
@@ -194,6 +197,235 @@ class TestMZI3UIntegration:
             
             assert actual_params == expected_params, \
                 f"For d_inp={d_inp}, d_out={d_out} (N={expected_N}), expected {expected_params} params, got {actual_params}"
+
+
+class TestMZIPerformanceGPU:
+    """Performance tests for MZI layer with GPU support and profiling."""
+    
+    @pytest.fixture
+    def gpu_device(self):
+        """Fixture to get GPU device if available."""
+        gpu_id = os.environ.get('TEST_GPU_ID', '0')
+        device_name = f'cuda:{gpu_id}' if torch.cuda.is_available() else 'cpu'
+        device = torch.device(device_name)
+        
+        if device.type == 'cuda':
+            print(f"Using GPU: {torch.cuda.get_device_name(device)}")
+            print(f"GPU memory: {torch.cuda.get_device_properties(device).total_memory / 1e9:.1f} GB")
+        else:
+            print("CUDA not available, using CPU")
+            
+        return device
+    
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+    def test_large_layer_performance_gpu(self, gpu_device):
+        """
+        Test performance of large MZI layer (1024x1024) with batch size 1024 on GPU.
+        
+        This test creates a large MZI layer and profiles its execution time
+        for the specified batch size and layer dimensions.
+        
+        Environment variables:
+            TEST_GPU_ID: GPU device ID to use (default: 0)
+            PROFILE_TRACES: If set, saves detailed profiling traces
+        """
+        # Test configuration
+        d_inp = 1024
+        d_out = 1024
+        batch_size = 1024
+        device = gpu_device
+        
+        print(f"\nTesting MZI layer performance:")
+        print(f"  Input dimension: {d_inp}")
+        print(f"  Output dimension: {d_out}")
+        print(f"  Batch size: {batch_size}")
+        print(f"  Device: {device}")
+        
+        # Create MZI layer
+        bb, w0, _ = create_bb_layer_mzi(d_inp, d_out)
+        
+        
+        # Move parameters and input to GPU
+        w0 = w0.to(device)
+        x = torch.randn(batch_size, d_inp, device=device, dtype=torch.float32)
+        
+        print(f"  Parameter count: {w0.numel()}")
+        print(f"  Input tensor size: {x.shape}")
+        print(f"  Memory usage (MB): {x.numel() * 4 / 1e6:.1f}")
+        
+        # Warm-up runs to ensure GPU is ready
+        print("\nPerforming warm-up runs...")
+        for _ in range(3):
+            with torch.no_grad():
+                _ = bb(x, w0)
+        
+        if device.type == 'cuda':
+            torch.cuda.synchronize()
+        
+        # Basic timing test
+        print("\nBasic timing test (3 runs):")
+        times = []
+        for i in range(3):
+            start_time = time.time()
+            with torch.no_grad():
+                for i in range(10):
+                    output = bb(x, w0)
+            end_time = time.time()
+            
+            run_time = end_time - start_time
+            times.append(run_time)
+            print(f"  Run {i+1}: {run_time*1000:.2f} ms")
+        
+        avg_time = np.mean(times)
+        std_time = np.std(times)
+        print(f"  Average: {avg_time*1000:.2f} ± {std_time*1000:.2f} ms")
+        
+        # Verify output correctness
+        assert output.shape == (batch_size, d_out), f"Expected shape ({batch_size}, {d_out}), got {output.shape}"
+        assert torch.isfinite(output).all(), "Output should be finite"
+        assert output.dtype in [torch.float32, torch.float64], f"Expected real dtype, got {output.dtype}"
+        
+        # Detailed profiling with torch.profiler
+        print("\nDetailed profiling with torch.profiler:")
+        
+        activities = [ProfilerActivity.CPU]
+        if device.type == 'cuda':
+            activities.append(ProfilerActivity.CUDA)
+        
+        save_traces = os.environ.get('PROFILE_TRACES', '').lower() in ['1', 'true', 'yes']
+        
+        with profile(
+            activities=activities,
+            record_shapes=True,
+            profile_memory=True,
+            with_stack=True,
+        ) as prof:
+            with record_function("mzi_forward_pass"):
+                with torch.no_grad():
+                    for i in range(10):
+                        output = bb(x, w0)
+                
+        
+        # Print profiling summary
+        print("\nProfiling Summary:")
+        print(prof.key_averages().table(sort_by="cuda_time_total" if device.type == 'cuda' else "cpu_time_total", 
+                                       row_limit=10))
+        
+        if save_traces:
+            trace_file = f"mzi_profile_{device.type}_{batch_size}x{d_inp}x{d_out}.json"
+            prof.export_chrome_trace(trace_file)
+            print(f"\nProfiler trace saved to: {trace_file}")
+        
+        # Memory usage analysis if on GPU
+        if device.type == 'cuda':
+            memory_allocated = torch.cuda.memory_allocated(device) / 1e6  # MB
+            memory_reserved = torch.cuda.memory_reserved(device) / 1e6   # MB
+            print(f"\nGPU Memory Usage:")
+            print(f"  Allocated: {memory_allocated:.1f} MB")
+            print(f"  Reserved: {memory_reserved:.1f} MB")
+        
+        # Performance assertions (these are quite lenient)
+        assert avg_time < 10.0, f"Forward pass too slow: {avg_time:.3f}s > 10s"
+        print(f"\nTest passed! Average forward pass time: {avg_time*1000:.2f} ms")
+    
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+    def test_different_batch_sizes_gpu(self, gpu_device):
+        """Test performance scaling with different batch sizes on GPU."""
+        d_inp = 512
+        d_out = 512
+        batch_sizes = [1, 16, 64, 256, 1024]
+        device = gpu_device
+        
+        print(f"\nTesting batch size scaling on {device}:")
+        print(f"Layer size: {d_inp} -> {d_out}")
+        
+        # Create MZI layer
+        bb, w0, _ = create_bb_layer_mzi(d_inp, d_out)
+        w0 = w0.to(device)
+        
+        results = {}
+        
+        for batch_size in batch_sizes:
+            x = torch.randn(batch_size, d_inp, device=device, dtype=torch.float32)
+            
+            # Warm-up
+            with torch.no_grad():
+                _ = bb(x, w0)
+            if device.type == 'cuda':
+                torch.cuda.synchronize()
+            
+            # Time measurement
+            times = []
+            for _ in range(5):
+                start_time = time.time()
+                with torch.no_grad():
+                    output = bb(x, w0)
+                if device.type == 'cuda':
+                    torch.cuda.synchronize()
+                end_time = time.time()
+                times.append(end_time - start_time)
+            
+            avg_time = np.mean(times)
+            throughput = batch_size / avg_time  # samples per second
+            results[batch_size] = {'time': avg_time, 'throughput': throughput}
+            
+            print(f"  Batch {batch_size:4d}: {avg_time*1000:6.2f} ms, {throughput:8.1f} samples/sec")
+            
+            # Basic correctness check
+            assert output.shape == (batch_size, d_out)
+            assert torch.isfinite(output).all()
+        
+        # Check that throughput generally increases with batch size
+        throughputs = [results[bs]['throughput'] for bs in batch_sizes]
+        print(f"\nThroughput scaling: {throughputs}")
+        
+        # Assert that larger batches are generally more efficient
+        assert results[1024]['throughput'] > results[1]['throughput'], \
+            "Large batches should be more efficient than single samples"
+    
+    def test_cpu_vs_gpu_comparison(self, gpu_device):
+        """Compare CPU vs GPU performance for moderate size layer."""
+        d_inp = 256
+        d_out = 256
+        batch_size = 128
+        
+        print(f"\nComparing CPU vs GPU performance:")
+        print(f"Layer size: {d_inp} -> {d_out}, Batch size: {batch_size}")
+        
+        # Create MZI layer
+        bb, w0, _ = create_bb_layer_mzi(d_inp, d_out)
+        
+        devices = [torch.device('cpu')]
+        if torch.cuda.is_available():
+            devices.append(gpu_device)
+        
+        for device in devices:
+            w0_dev = w0.to(device)
+            x = torch.randn(batch_size, d_inp, device=device, dtype=torch.float32)
+            
+            # Warm-up
+            with torch.no_grad():
+                _ = bb(x, w0_dev)
+            if device.type == 'cuda':
+                torch.cuda.synchronize()
+            
+            # Time measurement
+            times = []
+            for _ in range(5):
+                start_time = time.time()
+                with torch.no_grad():
+                    output = bb(x, w0_dev)
+                if device.type == 'cuda':
+                    torch.cuda.synchronize()
+                end_time = time.time()
+                times.append(end_time - start_time)
+            
+            avg_time = np.mean(times)
+            print(f"  {str(device):12s}: {avg_time*1000:6.2f} ms")
+            
+            # Verify correctness
+            assert output.shape == (batch_size, d_out)
+            assert torch.isfinite(output).all()
 
 
 # Pytest fixtures for common test data
