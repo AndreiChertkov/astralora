@@ -535,7 +535,7 @@ def main(ast, hyp, model):
 
 
 def run():
-    ast = Astralora('airbench_cifar', with_neptune=False)
+    ast = Astralora('airbench_cifar')
 
     hyp['opt']['train_epochs'] = ast.args.epochs
 
