@@ -139,10 +139,25 @@ class MZI3_Interferometer:
 
         U = torch.eye(self.N, dtype=torch.cfloat, device=self.device)
         for i in range(self.N // 2):
-            U = torch.einsum("bij, bjk -> bik", blocks0[i], U.view((self.N // 2, 2, self.N))).view((self.N, self.N))
-            U[1:-1, :] = torch.einsum("bij, bjk -> bik", blocks1[i], U[1:-1, :].view((self.N // 2 - 1, 2, self.N))).view(
-                (self.N - 2, self.N)
-            )
+            # First einsum - avoid view/reshape which can break autograd
+            U_reshaped = U.reshape(self.N // 2, 2, self.N) 
+            U = torch.einsum("bij,bjk->bik", blocks0[i], U_reshaped)
+            U = U.reshape(self.N, self.N)
+            
+            # Second einsum - avoid in-place operations and views
+            U_middle = U[1:-1, :]
+            U_middle_reshaped = U_middle.reshape(self.N // 2 - 1, 2, self.N)
+            U_new_middle = torch.einsum("bij,bjk->bik", blocks1[i], U_middle_reshaped)
+            U_new_middle = U_new_middle.reshape(self.N - 2, self.N)
+            
+            # Combine results without in-place operations
+            U = torch.cat([U[:1], U_new_middle, U[-1:]], dim=0)
+
+            # old version, left for reference
+            # U = torch.einsum("bij, bjk -> bik", blocks0[i], U.view((self.N // 2, 2, self.N))).view((self.N, self.N))
+            # U[1:-1, :] = torch.einsum("bij, bjk -> bik", blocks1[i], U[1:-1, :].view((self.N // 2 - 1, 2, self.N))).view(
+            #     (self.N - 2, self.N)
+            # )
 
         return U
 
