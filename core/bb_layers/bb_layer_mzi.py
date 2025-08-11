@@ -1,5 +1,7 @@
 """bb_layer_mzi.
 
+MZI (Mach-Zehnder Interferometer) BB layer using MZI3ULayer.
+
 """
 import torch
 import torch.nn as nn
@@ -7,21 +9,10 @@ from torch import Tensor
 from torch import tensor, sqrt, cos, sin, exp
 import warnings
 import numpy as np
+import math
 
 
 def create_bb_layer_mzi(d_inp, d_out):
-    """Create MZI (Mach-Zehnder Interferometer) BB layer using MZI3ULayer.
-    
-    This function creates a BB layer that uses the MZI3U interferometer
-    implementation for optical computing.
-    
-    Args:
-        d_inp: Input dimension
-        d_out: Output dimension
-        
-    Returns:
-        tuple: (bb_function, initial_weights, learning_rate_adjustment)
-    """
     # Find minimal N that satisfies MZI3U requirements
     # N must be even and N*N >= max(d_inp, d_out)
     # This allows the N-dimensional MZI space to accommodate both input and output
@@ -49,7 +40,8 @@ def create_bb_layer_mzi(d_inp, d_out):
         """Initialize parameters for MZI3U network."""
         w = torch.zeros(d)
         # Initialize with uniform distribution as in original MZI3ULayer
-        nn.init.uniform_(w, a=0, b=1.0)
+        # nn.init.uniform_(w, a=0, b=1.0)
+        torch.nn.init.uniform_(w, math.pi/2 - 0.1, math.pi/2 + 0.1)
         return w
     
     # Get the BB function from MZI3U implementation
@@ -98,6 +90,8 @@ def create_bb_layer_mzi(d_inp, d_out):
     
     # Learning rate adjustment factor (from original code)
     dw = 0.01
+
+    # bb = torch.compile(bb)
     
     return bb, w0, dw
 
@@ -132,32 +126,33 @@ class MZI3_Interferometer:
         self.U = self.get_matrix()
 
     def get_matrix(self):
-        params0 = self.params[0 : self.N**2 // 2]  # for layers 0, 2, 4, ...
-        params1 = self.params[self.N**2 // 2 : self.N**2 - self.N]  # for layers 1, 3, 5, ...
-        blocks0 = _get_3mzi_blocks(params0).view((self.N // 2, self.N // 2, 2, 2))  # layers 0, 2, 4, ...
-        blocks1 = _get_3mzi_blocks(params1).view((self.N // 2, self.N // 2 - 1, 2, 2))  # layers 1, 3, 5, ...
+        # For layers 0, 2, 4, ...:
+        params0 = self.params[0 : self.N**2 // 2]  
+        blocks0 = _get_3mzi_blocks(params0).view(
+            (self.N // 2, self.N // 2, 2, 2))
+    
+        # For layers 1, 3, 5, ...:
+        params1 = self.params[self.N**2 // 2 : self.N**2 - self.N]        
+        blocks1 = _get_3mzi_blocks(params1).view(
+            (self.N // 2, self.N // 2 - 1, 2, 2))
 
         U = torch.eye(self.N, dtype=torch.cfloat, device=self.device)
+
         for i in range(self.N // 2):
-            # First einsum - avoid view/reshape which can break autograd
+            # First einsum - avoid view/reshape which can break autograd:
             U_reshaped = U.reshape(self.N // 2, 2, self.N) 
             U = torch.einsum("bij,bjk->bik", blocks0[i], U_reshaped)
             U = U.reshape(self.N, self.N)
             
-            # Second einsum - avoid in-place operations and views
+            # Second einsum - avoid in-place operations and views:
             U_middle = U[1:-1, :]
             U_middle_reshaped = U_middle.reshape(self.N // 2 - 1, 2, self.N)
-            U_new_middle = torch.einsum("bij,bjk->bik", blocks1[i], U_middle_reshaped)
+            U_new_middle = torch.einsum("bij,bjk->bik",
+                blocks1[i], U_middle_reshaped)
             U_new_middle = U_new_middle.reshape(self.N - 2, self.N)
             
-            # Combine results without in-place operations
+            # Combine results without in-place operations:
             U = torch.cat([U[:1], U_new_middle, U[-1:]], dim=0)
-
-            # old version, left for reference
-            # U = torch.einsum("bij, bjk -> bik", blocks0[i], U.view((self.N // 2, 2, self.N))).view((self.N, self.N))
-            # U[1:-1, :] = torch.einsum("bij, bjk -> bik", blocks1[i], U[1:-1, :].view((self.N // 2 - 1, 2, self.N))).view(
-            #     (self.N - 2, self.N)
-            # )
 
         return U
 
@@ -181,9 +176,24 @@ def _get_3mzi_blocks(params):
     ps1 = (pshifts[:, 0] - pshifts[:, 1]) / 2
     ps2 = (pshifts[:, 0] + pshifts[:, 1]) / 2
 
-    tmzi[:, 0, 0] = exp(1j * ps2) * (sin(ps1) + 1j * sin(ps2)) / sqrt(tensor(2))
-    tmzi[:, 1, 1] = exp(1j * ps2) * (sin(ps1) - 1j * sin(ps2)) / sqrt(tensor(2))
-    tmzi[:, 0, 1] = exp(1j * ps2) * (-cos(ps1) + 1j * cos(ps2)) / sqrt(tensor(2))
-    tmzi[:, 1, 0] = exp(1j * ps2) * (cos(ps1) + 1j * cos(ps2)) / sqrt(tensor(2))
+    tmzi[:, 0, 0] = exp(1j*ps2) * (sin(ps1) + 1j * sin(ps2)) / sqrt(tensor(2))
+    tmzi[:, 1, 1] = exp(1j*ps2) * (sin(ps1) - 1j * sin(ps2)) / sqrt(tensor(2))
+    tmzi[:, 0, 1] = exp(1j*ps2) * (-cos(ps1) + 1j * cos(ps2)) / sqrt(tensor(2))
+    tmzi[:, 1, 0] = exp(1j*ps2) * (cos(ps1) + 1j * cos(ps2)) / sqrt(tensor(2))
 
     return tmzi
+
+
+if __name__ == '__main__':
+    from time import perf_counter as tpc
+    d_inp = 100
+    d_out = 200
+    bb, w0, dw = create_bb_layer_mzi(d_inp, d_out)
+
+    samples = 10000
+    t = tpc()
+    x = torch.ones(samples, d_inp)
+    y = bb(x, w0)
+    t = tpc() - t
+    print(f'Time: {t:-8.1e}')
+    print(f'Norm: {torch.norm(y):-8.1e}')
