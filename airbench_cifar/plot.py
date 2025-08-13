@@ -86,6 +86,7 @@ def plot(kind, base_dir="result", fpath_plot="result.png"):
     plt.xscale('log')
     plt.xticks(ranks, labels=[str(r) for r in ranks])
     plt.yticks(*Y_TICKS)
+    plt.ylim(Y_TICKS[0][0], Y_TICKS[0][-1])
     plt.legend(loc="lower right")
     plt.tight_layout()
 
