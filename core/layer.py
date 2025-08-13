@@ -102,6 +102,14 @@ class AstraloraLayer(torch.nn.Module):
 
         return y
 
+    def rebuild(self):
+        if self.skip_sm:
+            return
+
+        U, S, V = approximation(self.bb, self.d_inp, self.d_out,
+            self.w.data.clone(), self.rank, self.log, self.nepman)
+        self._set_factors(U, S, V)
+
     def _add_residual(self, x, y):
         x_ch = x.shape[1]
         y_ch = y.shape[1]

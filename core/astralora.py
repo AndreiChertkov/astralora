@@ -54,6 +54,10 @@ class Astralora:
 
         self.bb_num = 0
 
+        self.steps = 0
+
+        self.layers_bb = []
+
         if not 'epochs' in self.args:
             raise ValueError('Number of epochs is not provided')
 
@@ -66,7 +70,7 @@ class Astralora:
 
         if self.args.mode == 'bb':
             self.bb_num += 1
-            return AstraloraLayer(
+            layer_bb = AstraloraLayer(
                 d_inp=d_inp,
                 d_out=d_out,
                 kind=self.args.bb_kind,
@@ -77,6 +81,8 @@ class Astralora:
                 use_residual=self.args.use_residual,
                 log=self.log,
                 nepman=self.nepman)
+            self.layers_bb.append(layer_bb)
+            return layer_bb
         
         raise NotImplementedError
 
@@ -232,6 +238,13 @@ class Astralora:
         if self.args.mode == 'digital':
             return
 
+        self.steps += 1
+
+        if self.args.step_sm_rebuild > 0:
+            if self.steps % self.args.step_sm_rebuild == 0:
+                for layer_bb in self.layers_bb:
+                    layer_bb.rebuild()
+
         self.optimizer.step()
         self.scheduler.step()
 
@@ -242,7 +255,8 @@ class Astralora:
         self.optimizer.zero_grad()
 
     def step_end(self, epoch=None, loss_trn=None, loss_tst=None,
-             acc_trn=None, acc_tst=None, t=None):
+                 acc_trn=None, acc_tst=None, t=None):
+
         if loss_trn is not None:
             self.losses_trn.append(loss_trn)
         if loss_tst is not None:
