@@ -11,7 +11,7 @@ import sys
 from types import SimpleNamespace
 
 
-BB_KINDS = ['monarch', 'mrr', 'slm', 'matvec']
+BB_KINDS = ['matvec', 'monarch', 'mrr', 'mzi', 'slm']
 RANKS = [1, 5, 10, 50, 100]
 
 
@@ -91,31 +91,35 @@ def autorun_cnn_cifar(task, kind):
 
 
 def autorun_ecapa_urbansound8k(task, kind, samples_bb=1000, samples_sm=1000):
-    args = SimpleNamespace(**{
-        'task': task,
-        'root': f'{task}/result_{kind}'})
+    seeds = [1, 2, 3, 4, 5]
 
-    args.name = f'digital'
-    args.mode = 'digital'
-    _run(args)
+    for seed in seeds:
+        if False:
+            args = SimpleNamespace(**{
+                'task': task, 'seed': seed, 'root': f'{task}/result_{kind}'})
+            args.name = f'digital_seed{seed}'
+            args.mode = 'digital'
+            _run(args)
 
-    args.name = f'bb_{kind}_baseline_gd-gd'
-    args.mode = 'bb'
-    args.bb_kind = kind
-    args.samples_bb = -1
-    args.samples_sm = 0
-    args.skip_sm = True
-    _run(args)
-
-    for rank in RANKS:
-        args.name = f'bb_{kind}_rank{rank}'
+        args = SimpleNamespace(**{
+            'task': task, 'seed': seed, 'root': f'{task}/result_{kind}'})
+        args.name = f'bb_{kind}_baseline_gd-gd_seed{seed}'
         args.mode = 'bb'
-        args.rank = rank
         args.bb_kind = kind
-        args.samples_bb = samples_bb
-        args.samples_sm = samples_sm
-        args.skip_sm = False
+        args.samples_bb = -1
+        args.skip_sm = True
         _run(args)
+
+        for rank in RANKS:
+            args = SimpleNamespace(**{
+                'task': task, 'seed': seed, 'root': f'{task}/result_{kind}'})
+            args.name = f'bb_{kind}_rank{rank}_seed{seed}'
+            args.mode = 'bb'
+            args.rank = rank
+            args.bb_kind = kind
+            args.samples_bb = samples_bb
+            args.samples_sm = samples_sm
+            _run(args)
 
 
 def autorun_nanogpt_fineweb(task, kind, samples_bb=100, samples_sm=1000):
@@ -126,9 +130,9 @@ def autorun_nanogpt_fineweb(task, kind, samples_bb=100, samples_sm=1000):
         'root': f'{task}/result_{kind}',
         'torchrun': 1})
 
-    args.name = f'digital'
-    args.mode = 'digital'
-    _run(args)
+    # args.name = f'digital'
+    # args.mode = 'digital'
+    # _run(args)
 
     for rank in RANKS:
         args.name = f'bb_{kind}_rank{rank}_baseline_gd' # TODO: change
@@ -203,6 +207,7 @@ def _args_to_command(args):
 
 def _check(args):
     fpath = f'{args.root}/{args.name}/result.npz'
+    # fpath = f'{args.root}/{args.name}/log.txt'
     return not os.path.isfile(fpath)
 
 

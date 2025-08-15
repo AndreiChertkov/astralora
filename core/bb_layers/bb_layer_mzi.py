@@ -89,9 +89,7 @@ def create_bb_layer_mzi(d_inp, d_out):
     w0 = build_parameters()
     
     # Learning rate adjustment factor (from original code)
-    dw = 0.01
-
-    # bb = torch.compile(bb)
+    dw = 1.E-4
     
     return bb, w0, dw
 

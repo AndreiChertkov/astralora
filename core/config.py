@@ -70,6 +70,11 @@ def _config_astralora(task, parser):
         help='Number of samples to update surrogate model. If =-1, then "exact" (svd-based) computation is performed (only for debug)',
         default=0)
 
+    parser.add_argument('--step_sm_rebuild',
+        type=int,
+        help='Number of training steps after which we rebuild the surrogate model. If =-1, then rebuild is skipped',
+        default=-1)
+
     parser.add_argument('--skip_sm',
         type=lambda x: bool(strtobool(x)),
         help='If True, then we use the autograd to pass a gradient through a bb-layer instead of the surrogate model (only for debug)',

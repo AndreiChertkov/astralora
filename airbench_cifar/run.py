@@ -546,6 +546,7 @@ def run():
     ast.prepare(model)
     acc = main(ast, hyp, model)
     ast.done(model)
+    ast.log(f'DEBUG: total train steps = {ast.steps}')
 
 
 if __name__ == "__main__":
