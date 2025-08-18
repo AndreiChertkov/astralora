@@ -1,7 +1,8 @@
 import torch
 
 
-def backprop_wrap(bb_func, generator, samples_w=1, shift_w=1., skip_sm=False):
+def backprop_wrap(bb_func, generator, samples_w=1, shift_w=1., skip_sm=False,
+                  samples_batch_frac=-1):
     class FuncCustom(torch.autograd.Function):
         @staticmethod
         def forward(ctx, x, w, U, S, V):
@@ -42,7 +43,8 @@ def backprop_wrap(bb_func, generator, samples_w=1, shift_w=1., skip_sm=False):
                 if samples_w < 1:
                     raise ValueError('Invalid number of samples to update w')
                 grad_w = _backprop_stochastic(bb_func, x, w, grad_output, 
-                    generator, samples_w, shift_w)
+                    generator, samples_w, shift_w, 
+                    samples_batch_frac=samples_batch_frac)
 
             return grad_x, grad_w, None, None, None
 
@@ -50,8 +52,15 @@ def backprop_wrap(bb_func, generator, samples_w=1, shift_w=1., skip_sm=False):
 
 
 def _backprop_stochastic(bb_func, x, w, grad_output, generator,
-                         samples=1, shift=1., for_x=False):
+                         samples=1, shift=1., for_x=False, 
+                         samples_batch_frac=-1):
     device = grad_output.device
+
+    if samples_batch_frac > 0:
+        num = int(x.shape[0] * samples_batch_frac)
+        ind = torch.randperm(x.size(0))[:num]
+        x = x[ind]
+        grad_output = grad_output[ind]
 
     x = torch.clone(x.detach())
     w = torch.clone(w.detach())

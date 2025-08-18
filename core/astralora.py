@@ -77,6 +77,7 @@ class Astralora:
                 rank=self.args.rank, 
                 samples_bb=self.args.samples_bb,
                 samples_sm=self.args.samples_sm,
+                samples_bb_batch_frac=self.args.samples_bb_batch_frac,
                 skip_sm=self.args.skip_sm,
                 use_residual=self.args.use_residual,
                 log=self.log,

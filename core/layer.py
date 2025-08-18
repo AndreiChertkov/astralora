@@ -15,7 +15,8 @@ from .bb_layers.bb_layer_slm import create_bb_layer_slm
 
 class AstraloraLayer(torch.nn.Module):
     def __init__(self, d_inp, d_out, kind, rank, samples_bb, samples_sm, 
-                 skip_sm, use_residual, log=print, nepman=None):
+                 samples_bb_batch_frac, skip_sm, use_residual,
+                 log=print, nepman=None):
         super().__init__()
         
         self.d_inp = d_inp
@@ -24,6 +25,7 @@ class AstraloraLayer(torch.nn.Module):
         self.rank = rank
         self.samples_bb = samples_bb
         self.samples_sm = samples_sm
+        self.samples_bb_batch_frac = samples_bb_batch_frac
         self.skip_sm = skip_sm
         self.use_residual = use_residual
         self.log = log
@@ -139,7 +141,8 @@ class AstraloraLayer(torch.nn.Module):
         self._set_factors(U, S, V, init=True)
 
         self.bb_wrapper = backprop_wrap(self.bb, self.generator,
-            self.samples_bb, self.dw, self.skip_sm)
+            self.samples_bb, self.dw, self.skip_sm,
+            samples_batch_frac=self.samples_bb_batch_frac)
 
     def _debug_err(self):
         # TODO: now it use the exact form of bb. We should remove it later

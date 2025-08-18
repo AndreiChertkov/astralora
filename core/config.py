@@ -75,6 +75,11 @@ def _config_astralora(task, parser):
         help='Number of training steps after which we rebuild the surrogate model. If =-1, then rebuild is skipped',
         default=-1)
 
+    parser.add_argument('--samples_bb_batch_frac',
+        type=float,
+        help='The fraction of the x-batch to use within stochastic formula. If < 0, then the full x-batch is used',
+        default=-1)
+
     parser.add_argument('--skip_sm',
         type=lambda x: bool(strtobool(x)),
         help='If True, then we use the autograd to pass a gradient through a bb-layer instead of the surrogate model (only for debug)',
