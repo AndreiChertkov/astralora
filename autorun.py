@@ -45,6 +45,9 @@ def autorun_airbench_cifar(task, kind):
     ranks = [1, 3, 5, 7, 10, 50, 100]
     samples = [1, 10, 100, 1000]
 
+    if kind == 'mzi': # TODO: note this
+        seeds = [1]
+
     for seed in seeds:
         args = SimpleNamespace(**{'task': task, 'root': root})
         args.name = f'digital_seed{seed}'
@@ -83,6 +86,8 @@ def autorun_airbench_cifar(task, kind):
                 args.bb_kind = kind
                 args.samples_bb = s
                 args.samples_sm = s
+                if kind == 'mzi': # TODO: note this
+                    args.step_sm_rebuild = 100
                 _run(args)
 
 
