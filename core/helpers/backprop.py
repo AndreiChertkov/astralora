@@ -51,6 +51,8 @@ def backprop_wrap(bb_func, generator, samples_w=1, shift_w=1., skip_sm=False,
     return FuncCustom.apply
 
 
+
+
 def _backprop_stochastic(bb_func, x, w, grad_output, generator,
                          samples=1, shift=1., for_x=False, 
                          samples_batch_frac=-1):
@@ -123,3 +125,90 @@ def _backprop_stochastic_x_megabatch(bb_func, x, w, grad_output, generator,
     x_grad = sampled_g.mean(dim=0)
 
     return x_grad
+
+
+def _backprop_stochastic_subset(
+    bb_func,
+    x,
+    w,
+    grad_output,
+    generator,
+    samples=1,
+    shift=1.0,
+    subset_size=None,
+    subset_fraction=None,
+):
+    """Stochastic zero-order gradient approximation over a random subset of parameters.
+
+    Computes a finite-difference gradient estimate for ``w`` using random Gaussian
+    perturbations applied only on a randomly sampled subset of parameter indices
+    on each sample. Parameters outside the sampled subset receive zero updates
+    for that sample. The final result is averaged over all samples.
+
+    Arguments
+    - bb_func: callable taking (x, w) and returning output tensor shaped like y.
+    - x: input tensor (batch, in_features...) used for evaluating bb_func.
+    - w: parameter tensor for which the gradient is approximated.
+    - grad_output: upstream gradient w.r.t. bb_func(x, w), same shape as output.
+    - generator: torch.Generator used for reproducible randomness.
+    - samples: number of stochastic samples to average over (int >= 1).
+    - shift: finite-difference step size for perturbations.
+    - subset_size: number of parameter elements to perturb per sample. If None,
+      it is inferred from subset_fraction.
+    - subset_fraction: fraction (0, 1] of parameters to perturb per sample if
+      subset_size is not provided. Defaults to 0.1 if both are None.
+
+    Returns
+    - grad: tensor of the same shape as ``w`` with the approximated gradient.
+    """
+    device = grad_output.device
+
+    if samples < 1:
+        raise ValueError('samples must be >= 1')
+    if shift <= 0:
+        raise ValueError('shift must be > 0')
+
+    # Work on detached clones to avoid autograd interactions
+    x = torch.clone(x.detach())
+    w = torch.clone(w.detach())
+
+    total_params = w.numel()
+    if subset_size is None:
+        if subset_fraction is None:
+            subset_fraction = 0.1
+        if not (0.0 < subset_fraction <= 1.0):
+            raise ValueError('subset_fraction must be in (0, 1]')
+        subset_size = max(1, int(round(total_params * subset_fraction)))
+    else:
+        if subset_size < 1 or subset_size > total_params:
+            raise ValueError('subset_size must be in [1, numel(w)]')
+
+    grad = torch.zeros_like(w, device=device)
+
+    # Baseline projection with current parameters
+    y0 = bb_func(x, w)
+    p0 = torch.einsum('ij,ij->i', y0, grad_output)
+
+    for _ in range(samples):
+        # Sample subset indices and Gaussian perturbations for those indices
+        indices = torch.randperm(total_params, device=device, generator=generator)[:subset_size]
+
+        u_flat = torch.zeros(total_params, device=device)
+        u_subset = torch.normal(
+            mean=torch.zeros(subset_size, device=device),
+            std=torch.ones(subset_size, device=device),
+            generator=generator,
+        )
+        u_flat.index_copy_(0, indices, u_subset)
+        u = u_flat.reshape_as(w)
+
+        # Forward with perturbed parameters only on the chosen subset
+        y_new = bb_func(x, w + shift * u)
+        p_new = torch.einsum('ij,ij->i', y_new, grad_output)
+
+        # Directional derivative times perturbation gives estimator of grad
+        grad_sampled_flat = torch.einsum('j,i->j', u_flat, (p_new - p0) / shift)
+        grad = grad + grad_sampled_flat.reshape_as(w)
+
+    grad = grad / samples
+    return grad
