@@ -41,7 +41,7 @@ def create_bb_layer_mzi(d_inp, d_out):
         w = torch.zeros(d)
         # Initialize with uniform distribution as in original MZI3ULayer
         # nn.init.uniform_(w, a=0, b=1.0)
-        torch.nn.init.uniform_(w, math.pi/2 - 0.1, math.pi/2 + 0.1)
+        torch.nn.init.normal_(w, mean=math.pi/2, std=1/math.sqrt(N))
         return w
     
     # Get the BB function from MZI3U implementation
@@ -178,6 +178,16 @@ def _get_3mzi_blocks(params):
     tmzi[:, 1, 1] = exp(1j*ps2) * (sin(ps1) - 1j * sin(ps2)) / sqrt(tensor(2))
     tmzi[:, 0, 1] = exp(1j*ps2) * (-cos(ps1) + 1j * cos(ps2)) / sqrt(tensor(2))
     tmzi[:, 1, 0] = exp(1j*ps2) * (cos(ps1) + 1j * cos(ps2)) / sqrt(tensor(2))
+
+
+
+    # switch to a classical mzi matrix
+    # ph0 = pshifts[:, 0]
+    # ph1 = pshifts[:, 1]
+    # tmzi[:, 0, 0] = exp(1j*ph0) * (sin(ph1)) 
+    # tmzi[:, 0, 1] = exp(1j*ph0) * (cos(ph1)) 
+    # tmzi[:, 1, 0] = (cos(ph1))
+    # tmzi[:, 1, 1] = (-sin(ph1)) 
 
     return tmzi
 

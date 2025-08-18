@@ -64,7 +64,7 @@ def test_visualize_fit_mzi_to_unitary():
     d_out = int(os.environ.get('TEST_D_OUT', 8))
     steps = int(os.environ.get('TEST_STEPS', 300))
     batch = int(os.environ.get('TEST_BATCH', 256))
-    lr = float(os.environ.get('TEST_LR', 0.05))
+    lr = float(os.environ.get('TEST_LR', 0.001))
     seed = int(os.environ.get('TEST_SEED', 0))
 
     torch.manual_seed(seed)
