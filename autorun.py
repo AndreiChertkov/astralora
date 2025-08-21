@@ -12,7 +12,6 @@ from types import SimpleNamespace
 
 
 BB_KINDS = ['matvec', 'monarch', 'mrr', 'mzi', 'slm']
-RANKS = [1, 5, 10, 50, 100]
 
 
 def autorun(task, kind_only=None):
@@ -45,9 +44,6 @@ def autorun_airbench_cifar(task, kind):
     ranks = [1, 3, 5, 7, 10, 50, 100]
     samples = [1, 10, 100, 1000]
 
-    if kind == 'mzi': # TODO: note this
-        seeds = [1]
-
     for seed in seeds:
         args = SimpleNamespace(**{'task': task, 'root': root})
         args.name = f'digital_seed{seed}'
@@ -55,18 +51,17 @@ def autorun_airbench_cifar(task, kind):
         args.seed = seed
         _run(args)
 
-        for rank in ranks:
-            args = SimpleNamespace(**{'task': task, 'root': root})
-            args.name = f'bb_{kind}_rank{rank}_baseline_gd-gd_seed{seed}'
-            args.mode = 'bb'
-            args.seed = seed
-            args.rank = rank
-            args.bb_kind = kind
-            args.samples_bb = -1
-            args.samples_sm = 0
-            args.skip_sm = True
-            _run(args)
+        args = SimpleNamespace(**{'task': task, 'root': root})
+        args.name = f'bb_{kind}_baseline_gd-gd_seed{seed}'
+        args.mode = 'bb'
+        args.seed = seed
+        args.bb_kind = kind
+        args.samples_bb = -1
+        args.samples_sm = 0
+        args.skip_sm = True
+        _run(args)
 
+        for rank in ranks:
             args = SimpleNamespace(**{'task': task, 'root': root})
             args.name = f'bb_{kind}_rank{rank}_baseline_gd-svd_seed{seed}'
             args.mode = 'bb'
@@ -97,6 +92,7 @@ def autorun_cnn_cifar(task, kind):
 
 def autorun_ecapa_urbansound8k(task, kind, samples_bb=1000, samples_sm=1000):
     seeds = [1, 2, 3, 4, 5]
+    ranks = [1, 5, 10, 50, 100]
 
     for seed in seeds:
         if False:
@@ -115,7 +111,7 @@ def autorun_ecapa_urbansound8k(task, kind, samples_bb=1000, samples_sm=1000):
         args.skip_sm = True
         _run(args)
 
-        for rank in RANKS:
+        for rank in ranks:
             args = SimpleNamespace(**{
                 'task': task, 'seed': seed, 'root': f'{task}/result_{kind}'})
             args.name = f'bb_{kind}_rank{rank}_seed{seed}'
@@ -124,22 +120,29 @@ def autorun_ecapa_urbansound8k(task, kind, samples_bb=1000, samples_sm=1000):
             args.bb_kind = kind
             args.samples_bb = samples_bb
             args.samples_sm = samples_sm
+            if kind == 'mzi': # TODO: note this
+                args.step_sm_rebuild = 100
             _run(args)
 
 
-def autorun_nanogpt_fineweb(task, kind, samples_bb=100, samples_sm=1000):
-    print('\n\nWARNING: draft run\n\n')
+def autorun_nanogpt_fineweb(task, kind, samples_bb=1000, samples_sm=1000):
+    ranks = [1, 5, 10, 50, 100, 500]
 
     args = SimpleNamespace(**{
         'task': task,
         'root': f'{task}/result_{kind}',
         'torchrun': 1})
 
-    # args.name = f'digital'
-    # args.mode = 'digital'
-    # _run(args)
+    if False:
+        args = SimpleNamespace(**{'root': f'{task}/result_{kind}',
+            'task': task, 'torchrun': 1})
+        args.name = f'digital'
+        args.mode = 'digital'
+        _run(args)
 
-    for rank in RANKS:
+    for rank in ranks:
+        args = SimpleNamespace(**{'root': f'{task}/result_{kind}',
+            'task': task, 'torchrun': 1})
         args.name = f'bb_{kind}_rank{rank}_baseline_gd' # TODO: change
         args.mode = 'bb'
         args.rank = rank
@@ -211,8 +214,8 @@ def _args_to_command(args):
 
 
 def _check(args):
-    fpath = f'{args.root}/{args.name}/result.npz'
-    # fpath = f'{args.root}/{args.name}/log.txt'
+    # fpath = f'{args.root}/{args.name}/result.npz'
+    fpath = f'{args.root}/{args.name}/log.txt'
     return not os.path.isfile(fpath)
 
 
