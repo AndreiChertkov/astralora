@@ -74,7 +74,7 @@ def run():
 
     if args.load_digital:
         model.load_state_dict(
-            torch.load(args.load_digital, map_location=model.device))
+            torch.load(args.load_digital + '/model.pth', map_location='cpu'))
 
     assert args.bb_num <= len(model.transformer.h)
     for num in range(args.bb_num):
@@ -212,8 +212,9 @@ def run():
             break
 
     if master_process:
-        ast.done(model)
-
+        ast.done(model_raw)
+        if ast.args.save_model:
+            torch.save(model.state_dict(), ast.path('model_ddp.pth'))
     dist.destroy_process_group()
 
 

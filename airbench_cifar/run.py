@@ -536,14 +536,15 @@ def main(ast, hyp, model):
 
 def run():
     ast = Astralora('airbench_cifar')
+    args = ast.args
 
-    hyp['opt']['train_epochs'] = ast.args.epochs
+    hyp['opt']['train_epochs'] = args.epochs
 
     model = make_net(hyp['net'])
 
     if args.load_digital:
         model.load_state_dict(
-            torch.load(args.load_digital, map_location=model.device))
+            torch.load(args.load_digital + '/model.pth', map_location='cpu'))
 
     model[7] = ast.build(model[7])
     model = model.to(ast.device, memory_format=torch.channels_last)
@@ -551,7 +552,7 @@ def run():
     ast.prepare(model)
     acc = main(ast, hyp, model)
     ast.done(model)
-    ast.log(f'DEBUG: total train steps = {ast.steps}')
+    # ast.log(f'DEBUG: total train steps = {ast.steps}')
 
 
 if __name__ == "__main__":
