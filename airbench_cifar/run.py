@@ -540,6 +540,11 @@ def run():
     hyp['opt']['train_epochs'] = ast.args.epochs
 
     model = make_net(hyp['net'])
+
+    if args.load_digital:
+        model.load_state_dict(
+            torch.load(args.load, map_location=model.device))
+
     model[7] = ast.build(model[7])
     model = model.to(ast.device, memory_format=torch.channels_last)
     # model = torch.compile(model, mode='max-autotune')

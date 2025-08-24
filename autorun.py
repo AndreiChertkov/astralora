@@ -31,8 +31,17 @@ def autorun(task, kind_only=None):
         elif task == 'ecapa_urbansound8k':
             autorun_ecapa_urbansound8k(task, kind)
 
-        elif task == 'nanogpt_fineweb':
-            autorun_nanogpt_fineweb(task, kind)
+        elif task == 'nanogpt_fineweb_layers12':
+            autorun_nanogpt_fineweb_layers12('nanogpt_fineweb', kind)
+
+        elif task == 'nanogpt_fineweb_layers1':
+            autorun_nanogpt_fineweb_layers1('nanogpt_fineweb', kind)
+
+        elif task == 'finetune_prepare':
+            autorun_finetune_prepare(task, kind)
+
+        elif task == 'finetune':
+            autorun_finetune(task, kind)
 
         else:
             raise NotImplementedError
@@ -45,21 +54,23 @@ def autorun_airbench_cifar(task, kind):
     samples = [1, 10, 100, 1000]
 
     for seed in seeds:
-        args = SimpleNamespace(**{'task': task, 'root': root})
-        args.name = f'digital_seed{seed}'
-        args.mode = 'digital'
-        args.seed = seed
-        _run(args)
+        if kind == 'matvec':
+            args = SimpleNamespace(**{'task': task, 'root': root})
+            args.name = f'digital_seed{seed}'
+            args.mode = 'digital'
+            args.seed = seed
+            _run(args)
 
-        args = SimpleNamespace(**{'task': task, 'root': root})
-        args.name = f'bb_{kind}_baseline_gd-gd_seed{seed}'
-        args.mode = 'bb'
-        args.seed = seed
-        args.bb_kind = kind
-        args.samples_bb = -1
-        args.samples_sm = 0
-        args.skip_sm = True
-        _run(args)
+        if False:
+            args = SimpleNamespace(**{'task': task, 'root': root})
+            args.name = f'bb_{kind}_baseline_gd-gd_seed{seed}'
+            args.mode = 'bb'
+            args.seed = seed
+            args.bb_kind = kind
+            args.samples_bb = -1
+            args.samples_sm = 0
+            args.skip_sm = True
+            _run(args)
 
         for rank in ranks:
             args = SimpleNamespace(**{'task': task, 'root': root})
@@ -120,35 +131,152 @@ def autorun_ecapa_urbansound8k(task, kind, samples_bb=1000, samples_sm=1000):
             args.bb_kind = kind
             args.samples_bb = samples_bb
             args.samples_sm = samples_sm
-            if kind == 'mzi': # TODO: note this
-                args.step_sm_rebuild = 100
             _run(args)
 
 
-def autorun_nanogpt_fineweb(task, kind, samples_bb=1000, samples_sm=1000):
+def autorun_finetune_prepare(task, kind):
+    if kind != 'matvec':
+        return
+
+    if True:
+        task = 'airbench_cifar'
+        _run(SimpleNamespace(**{
+            'root': f'{task}/result_finetune/digital',
+            'name': 'digital',
+            'mode': 'digital',
+            'task': task,
+            'epochs': 1,
+            'save_model': True}))
+
+    if True:
+        task = 'cnn_cifar'
+        _run(SimpleNamespace(**{
+            'root': f'{task}/result_finetune/digital',
+            'name': 'digital',
+            'mode': 'digital',
+            'task': task,
+            'epochs': 1,
+            'save_model': True}))
+
+    if True:
+        task = 'ecapa_urbansound8k'
+        _run(SimpleNamespace(**{
+            'root': f'{task}/result_finetune/digital',
+            'name': 'digital',
+            'mode': 'digital',
+            'task': task,
+            'epochs': 1,
+            'save_model': True}))
+        
+    if True:
+        task = 'nanogpt_fineweb'
+        _run(SimpleNamespace(**{
+            'root': f'{task}/result_finetune/digital',
+            'name': 'digital',
+            'mode': 'digital',
+            'task': task,
+            'torchrun': 1,
+            'epochs': 1,
+            'save_model': True}))
+
+
+def autorun_finetune(task, kind):
+    if kind != 'matvec':
+        return
+
+    tasks = [
+        'airbench_cifar',
+        'cnn_cifar',
+        'ecapa_urbansound8k',
+        'nanogpt_fineweb',
+    ]
+
+    for task in tasks:
+        _run(SimpleNamespace(**{
+            'root': f'{task}/result_finetune/digital_test',
+            'name': 'digital',
+            'mode': 'digital',
+            'task': task,
+            'load_digital': f'{task}/result_finetune/digital',
+            'torchrun': 1 if task == 'nanogpt_fineweb' else 0,
+            'epochs': 1}))
+
+
+def autorun_nanogpt_fineweb_layers1(task, kind, rank=100):
+    if kind == 'matvec':
+        args = SimpleNamespace(**{
+            'root': f'{task}/result_layers-1/result_{kind}',
+            'task': task,
+            'torchrun': 1})
+        args.name = f'digital'
+        args.mode = 'digital'
+        _run(args)
+
+    if True:
+        args = SimpleNamespace(**{
+            'root': f'{task}/result_layers-1/result_{kind}',
+            'task': task,
+            'torchrun': 1})
+        args.name = f'bb_{kind}_baseline_bb-gd_sm-gd'
+        args.mode = 'bb'
+        args.rank = rank
+        args.bb_kind = kind
+        args.bb_num = 1
+        args.samples_bb = -1
+        args.skip_sm = True
+        _run(args)
+
+    for s in [1, 10, 100, 1000]:
+        args = SimpleNamespace(**{
+            'root': f'{task}/result_layers-1/result_{kind}',
+            'task': task,
+            'torchrun': 1})
+        args.name = f'bb_{kind}_baseline_bb-gd_s{s}'
+        args.mode = 'bb'
+        args.rank = rank
+        args.bb_kind = kind
+        args.bb_num = 1
+        args.samples_bb = -1
+        args.samples_sm = s
+        _run(args)
+
+        args = SimpleNamespace(**{
+            'root': f'{task}/result_layers-1/result_{kind}',
+            'task': task,
+            'torchrun': 1})
+        args.name = f'bb_{kind}_s{s}'
+        args.mode = 'bb'
+        args.rank = rank
+        args.bb_kind = kind
+        args.bb_num = 1
+        args.samples_bb = s
+        args.samples_sm = s
+        _run(args)
+
+
+def autorun_nanogpt_fineweb_layers12(task, kind, samples_sm=1000):
     ranks = [1, 5, 10, 50, 100, 500]
 
-    args = SimpleNamespace(**{
-        'task': task,
-        'root': f'{task}/result_{kind}',
-        'torchrun': 1})
-
     if False:
-        args = SimpleNamespace(**{'root': f'{task}/result_{kind}',
-            'task': task, 'torchrun': 1})
+        args = SimpleNamespace(**{
+            'root': f'{task}/result_layers-12/result_{kind}',
+            'task': task,
+            'torchrun': 1})
         args.name = f'digital'
         args.mode = 'digital'
         _run(args)
 
     for rank in ranks:
-        args = SimpleNamespace(**{'root': f'{task}/result_{kind}',
-            'task': task, 'torchrun': 1})
-        args.name = f'bb_{kind}_rank{rank}_baseline_gd' # TODO: change
+        args = SimpleNamespace(**{
+            'root': f'{task}/result_layers-12/result_{kind}',
+            'task': task,
+            'torchrun': 1})
+        args.name = f'bb_{kind}_rank{rank}_baseline_gd'
         args.mode = 'bb'
         args.rank = rank
         args.bb_kind = kind
         args.bb_num = 12
-        args.samples_bb = -1 # samples_bb # TODO: move back
+        args.samples_bb = -1
         args.samples_sm = samples_sm
         _run(args)
 
@@ -214,8 +342,8 @@ def _args_to_command(args):
 
 
 def _check(args):
-    # fpath = f'{args.root}/{args.name}/result.npz'
-    fpath = f'{args.root}/{args.name}/log.txt'
+    fpath = f'{args.root}/{args.name}/result.npz'
+    # fpath = f'{args.root}/{args.name}/log.txt'
     return not os.path.isfile(fpath)
 
 

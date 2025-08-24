@@ -148,6 +148,11 @@ def _config_base(task, parser):
         ],
         default="matvec")
 
+    parser.add_argument("--load_digital",
+        type=str, 
+        help="Optional path to load the initial (digital) model",
+        default=None)
+
     parser.add_argument('--save_model',
         type=lambda x: bool(strtobool(x)),
         help='Do we save model into file after train',

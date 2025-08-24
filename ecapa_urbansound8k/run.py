@@ -477,6 +477,10 @@ def run(task='ecapa_urbansound8k'):
         run_opts={"device": str(ast.device)},
         checkpointer=hparams["checkpointer"])
 
+    if args.load_digital:
+        model.modules.load_state_dict(
+            torch.load(args.load, map_location=model.device))
+
     model.modules.embedding_model.fc = CustomLayerWrapper(
         model.modules.embedding_model.fc)
     model.modules.embedding_model.fc = \
@@ -502,7 +506,7 @@ def run(task='ecapa_urbansound8k'):
         progressbar=True,
         test_loader_kwargs=hparams["dataloader_options"])
 
-    ast.done()
+    ast.done(model.modules)
 
 
 if __name__ == "__main__":

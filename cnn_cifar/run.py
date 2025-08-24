@@ -61,6 +61,11 @@ def run():
         ast.args.root_data, ast.args.batch_size)
 
     model = Model()
+
+    if args.load_digital:
+        model.load_state_dict(
+            torch.load(args.load, map_location=model.device))
+
     model.classifier[1] = ast.build(model.classifier[1])
     model = model.to(ast.device) # Do it after ast.build!
 
