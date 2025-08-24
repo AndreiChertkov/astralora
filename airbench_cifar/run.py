@@ -543,7 +543,7 @@ def run():
 
     if args.load_digital:
         model.load_state_dict(
-            torch.load(args.load, map_location=model.device))
+            torch.load(args.load_digital, map_location=model.device))
 
     model[7] = ast.build(model[7])
     model = model.to(ast.device, memory_format=torch.channels_last)

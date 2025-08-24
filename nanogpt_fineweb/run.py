@@ -74,7 +74,7 @@ def run():
 
     if args.load_digital:
         model.load_state_dict(
-            torch.load(args.load, map_location=model.device))
+            torch.load(args.load_digital, map_location=model.device))
 
     assert args.bb_num <= len(model.transformer.h)
     for num in range(args.bb_num):

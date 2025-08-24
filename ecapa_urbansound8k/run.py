@@ -479,7 +479,7 @@ def run(task='ecapa_urbansound8k'):
 
     if args.load_digital:
         model.modules.load_state_dict(
-            torch.load(args.load, map_location=model.device))
+            torch.load(args.load_digital, map_location=model.device))
 
     model.modules.embedding_model.fc = CustomLayerWrapper(
         model.modules.embedding_model.fc)
