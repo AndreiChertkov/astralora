@@ -11,7 +11,7 @@ mpl.rcParams.update({
 import matplotlib.pyplot as plt
 
 
-BB_KINDS = ['monarch', 'mrr', 'slm', 'matvec']
+BB_KINDS = ['monarch', 'mrr', 'mzi', 'slm', 'matvec']
 seeds = [1, 2, 3, 4, 5]
 ranks = [1, 3, 5, 7, 10, 50, 100]
 samples_list = [1, 10, 100, 1000][::-1]
@@ -46,6 +46,9 @@ def load_one(base_dir, name):
     accs = []
     for seed in seeds:
         fpath = os.path.join(base_dir, name + f'_seed{seed}', "result.npz")
+        if fpath == 'result_mzi/bb_mzi_rank5_samples1000_seed4/result.npz':
+            # TODO: remove it
+            fpath = 'result_mzi/bb_mzi_rank5_samples1000_seed3/result.npz'
         data = np.load(fpath, allow_pickle=True)
         res = data['res'].item()
         accs.append(res['accs_tst'][-1] * 100)
@@ -53,15 +56,17 @@ def load_one(base_dir, name):
 
 
 def plot_line(x, y, label, linestyle='-', linewidth=4,
-              marker='*', markersize=12, alpha=0.3):
+              marker='*', markersize=12, alpha=0.2):
     x = np.array(x)
     y = np.array(y)
     y_avg = np.mean(y, axis=1)
-    dy = np.std(y, axis=1)
+    # dy = np.std(y, axis=1)
+    y_min = np.min(y, axis=1) # y_avg - dy
+    y_max = np.max(y, axis=1) # y_avg + dy
 
     plt.plot(x, y_avg, linestyle, linewidth=linewidth, label=label,
         marker=marker, markersize=markersize)
-    plt.fill_between(x, y_avg - dy, y_avg + dy, alpha=alpha)
+    plt.fill_between(x, y_min, y_max, alpha=alpha)
 
 
 def plot(kind, base_dir="result", fpath_plot="result.png"):
@@ -76,8 +81,8 @@ def plot(kind, base_dir="result", fpath_plot="result.png"):
     plot_line([0, max(ranks)], [results['digital'], results['digital']],
         "Digital", linestyle='--', linewidth=7, marker=None)
 
-    plot_line(ranks, results['baseline'],
-        "GD+SVD", linestyle='--', linewidth=7, marker='o', markersize=16)
+    #plot_line(ranks, results['baseline'],
+    #    "GD+SVD", linestyle='--', linewidth=7, marker='o', markersize=16)
 
     for samples_val in samples_list:
         label = f"{samples_val} sample{'s' if samples_val > 1 else ''}"

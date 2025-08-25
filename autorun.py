@@ -11,7 +11,7 @@ import sys
 from types import SimpleNamespace
 
 
-BB_KINDS = ['matvec', 'monarch', 'mrr', 'mzi', 'slm']
+BB_KINDS = ['matvec', 'monarch', 'mrr', 'slm'] # , 'mzi'
 
 
 def autorun(task, kind_only=None):
@@ -31,11 +31,14 @@ def autorun(task, kind_only=None):
         elif task == 'ecapa_urbansound8k':
             autorun_ecapa_urbansound8k(task, kind)
 
-        elif task == 'nanogpt_fineweb_layers12':
-            autorun_nanogpt_fineweb_layers12('nanogpt_fineweb', kind)
+        elif task == 'nanogpt_fineweb_layers':
+            autorun_nanogpt_fineweb_layers('nanogpt_fineweb', kind)
 
         elif task == 'nanogpt_fineweb_layers1':
             autorun_nanogpt_fineweb_layers1('nanogpt_fineweb', kind)
+
+        elif task == 'nanogpt_fineweb_layers12':
+            autorun_nanogpt_fineweb_layers12('nanogpt_fineweb', kind)
 
         elif task == 'finetune_prepare':
             autorun_finetune_prepare(task, kind)
@@ -138,46 +141,38 @@ def autorun_finetune_prepare(task, kind):
     if kind != 'matvec':
         return
 
-    if True:
-        task = 'airbench_cifar'
-        _run(SimpleNamespace(**{
-            'root': f'{task}/result_finetune/digital',
-            'name': 'digital',
-            'mode': 'digital',
-            'task': task,
-            'epochs': 1,
-            'save_model': True}))
+    task = 'airbench_cifar'
+    _run(SimpleNamespace(**{
+        'root': f'{task}/result_finetune',
+        'name': 'digital',
+        'mode': 'digital',
+        'task': task,
+        'save_model': True}))
 
-    if True:
-        task = 'cnn_cifar'
-        _run(SimpleNamespace(**{
-            'root': f'{task}/result_finetune/digital',
-            'name': 'digital',
-            'mode': 'digital',
-            'task': task,
-            'epochs': 1,
-            'save_model': True}))
+    task = 'cnn_cifar'
+    _run(SimpleNamespace(**{
+        'root': f'{task}/result_finetune',
+        'name': 'digital',
+        'mode': 'digital',
+        'task': task,
+        'save_model': True}))
 
-    if True:
-        task = 'ecapa_urbansound8k'
-        _run(SimpleNamespace(**{
-            'root': f'{task}/result_finetune/digital',
-            'name': 'digital',
-            'mode': 'digital',
-            'task': task,
-            'epochs': 1,
-            'save_model': True}))
-        
-    if True:
-        task = 'nanogpt_fineweb'
-        _run(SimpleNamespace(**{
-            'root': f'{task}/result_finetune/digital',
-            'name': 'digital',
-            'mode': 'digital',
-            'task': task,
-            'torchrun': 1,
-            'epochs': 1,
-            'save_model': True}))
+    task = 'ecapa_urbansound8k'
+    _run(SimpleNamespace(**{
+        'root': f'{task}/result_finetune',
+        'name': 'digital',
+        'mode': 'digital',
+        'task': task,
+        'save_model': True}))
+    
+    task = 'nanogpt_fineweb'
+    _run(SimpleNamespace(**{
+        'root': f'{task}/result_finetune',
+        'name': 'digital',
+        'mode': 'digital',
+        'task': task,
+        'torchrun': 1,
+        'save_model': True}))
 
 
 def autorun_finetune(task, kind):
@@ -199,7 +194,23 @@ def autorun_finetune(task, kind):
             'task': task,
             'load_digital': f'{task}/result_finetune/digital',
             'torchrun': 1 if task == 'nanogpt_fineweb' else 0,
+            'rewrite': True,
             'epochs': 1}))
+
+
+def autorun_nanogpt_fineweb_layers(task, kind, samples=100, rank=100):
+    for l in [1, 2, 3, 4, 5]:
+        _run(SimpleNamespace(**{
+            'root': f'{task}/result_layers_s{samples}',
+            'name': f'bb_{kind}_l{l}',
+            'mode': 'bb',
+            'rank': rank,
+            'task': task,
+            'bb_kind': kind,
+            'bb_num': l,
+            'samples_bb': samples,
+            'samples_sm': samples,
+            'torchrun': 1}))
 
 
 def autorun_nanogpt_fineweb_layers1(task, kind, rank=100):
