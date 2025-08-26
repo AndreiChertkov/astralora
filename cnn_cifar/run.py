@@ -56,11 +56,16 @@ class Model(nn.Module):
 
 def run():
     ast = Astralora('cnn_cifar')
+    args = ast.args
 
-    loader_trn, loader_tst = _build_data(
-        ast.args.root_data, ast.args.batch_size)
+    loader_trn, loader_tst = _build_data(args.root_data, args.batch_size)
 
     model = Model()
+
+    if args.load_digital:
+        model.load_state_dict(
+            torch.load(args.load_digital + '/model.pth', map_location='cpu'))
+
     model.classifier[1] = ast.build(model.classifier[1])
     model = model.to(ast.device) # Do it after ast.build!
 
@@ -70,11 +75,11 @@ def run():
         if not hasattr(p, 'ast_bb')]
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(parameters, lr=ast.args.lr)
+    optimizer = optim.Adam(parameters, lr=args.lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
         factor=0.5, patience=5)
     
-    for epoch in range(ast.args.epochs):
+    for epoch in range(args.epochs):
         model.train()
         running_loss = 0.
         correct = 0

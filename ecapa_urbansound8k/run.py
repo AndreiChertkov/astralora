@@ -423,16 +423,17 @@ def run(task='ecapa_urbansound8k'):
     torch.backends.cudnn.benchmark = True
 
     ast = Astralora(task, with_neptune=False)
+    args = ast.args
 
-    sb.utils.seed.seed_everything(ast.args.seed)
+    sb.utils.seed.seed_everything(args.seed)
 
-    folder = ast.args.folder + '/speechbrain_output'
+    folder = args.folder + '/speechbrain_output'
 
     fpath = task + '/config.yaml'
     with open(fpath, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, {
             "output_folder": folder + '/urban_sound',
-            "number_of_epochs": ast.args.epochs,
+            "number_of_epochs": args.epochs,
             'batch_size': 64})
 
     sb.create_experiment_directory(
@@ -459,7 +460,7 @@ def run(task='ecapa_urbansound8k'):
         # TODO: note this. We copy the "save" folder with
         # processed audio data from previous runs:
         shutil.copytree(
-            src=ast.args.root_data + '/save',
+            src=args.root_data + '/save',
             dst=folder + '/urban_sound/save',
             dirs_exist_ok=True,
             copy_function=shutil.copy2,
@@ -482,6 +483,10 @@ def run(task='ecapa_urbansound8k'):
     model.modules.embedding_model.fc = \
         model.modules.embedding_model.fc.to(ast.device)
 
+    if args.load_digital:
+        model.modules.load_state_dict(
+            torch.load(args.load_digital + '/model.pth', map_location='cpu'))
+
     model.modules.embedding_model.fc.linear = ast.build(
         model.modules.embedding_model.fc.linear)
     model.modules.embedding_model.fc.linear = \
@@ -502,7 +507,7 @@ def run(task='ecapa_urbansound8k'):
         progressbar=True,
         test_loader_kwargs=hparams["dataloader_options"])
 
-    ast.done()
+    ast.done(model.modules)
 
 
 if __name__ == "__main__":

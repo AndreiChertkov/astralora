@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 
-BB_KINDS = ['matvec', 'slm', 'mrr', 'monarch']
+BB_KINDS = ['matvec', 'mrr', 'slm', 'monarch']
 RANKS = [1, 5, 10, 50, 100]
 SEEDS = [1, 2, 3, 4, 5]
 

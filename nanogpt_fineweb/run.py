@@ -72,6 +72,10 @@ def run():
         vocab_size=50304, block_size=args.block_size,
         num_blocks=args.num_blocks, n_head=args.num_head, n_embd=768*2))
 
+    if args.load_digital:
+        model.load_state_dict(
+            torch.load(args.load_digital + '/model.pth', map_location='cpu'))
+
     assert args.bb_num <= len(model.transformer.h)
     for num in range(args.bb_num):
         model.transformer.h[-1-num].mlp.c_fc = ast.build(
@@ -208,8 +212,9 @@ def run():
             break
 
     if master_process:
-        ast.done(model)
-
+        ast.done(model_raw)
+        if ast.args.save_model:
+            torch.save(model.state_dict(), ast.path('model_ddp.pth'))
     dist.destroy_process_group()
 
 
