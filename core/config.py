@@ -143,7 +143,8 @@ def _config_base(task, parser):
             "matvec",                # Simple linear-like layer
             "monarch",               # Monarch layer
             "mrr",                   # MRR layer from torch-onn
-            "mzi",                   # MZI layer from torch-onn
+            "mzi",                   # 3-MZI layer from torch-onn
+            "mzi_classical",         # MZI layer from torch-onn
             "slm",                   # SLM layer
         ],
         default="matvec")

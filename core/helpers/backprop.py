@@ -70,6 +70,36 @@ def _backprop_stochastic(bb_func, x, w, grad_output, generator,
     value = x if for_x else w
     grad = torch.zeros(value.shape, device=device)
 
+    # For w-gradients, use compressed-batch optimization when B > J
+    if not for_x and x.shape[0] > grad_output.shape[1]:
+        # Compressed-batch optimization: replace batch B with J = d_out
+        B = x.shape[0]
+        x2d = x.view(B, -1)
+        G = grad_output  # [B, J]
+        J = G.shape[1]
+        
+        # Build compressed batch of size J
+        M = (G.transpose(0, 1) @ x2d).contiguous()  # [J, D_flat]
+        M = M.view(J, *x.shape[1:])  # [J, ...]
+        
+        # Baseline scalar is the trace of bb(M, w)
+        Y0 = bb_func(M, w)  # [J, J]
+        s0 = torch.einsum("ii->", Y0)  # trace
+        
+        for _ in range(samples):
+            u_m = torch.zeros(value.shape, device=device)
+            u_s = torch.tensor(1., device=device)
+            u = torch.normal(u_m, std=u_s, generator=generator)
+            
+            Y_new = bb_func(M, w + shift * u)  # [J, J]
+            s_new = torch.einsum("ii->", Y_new)
+            s = (s_new - s0) / shift
+            grad = grad + u * s
+        
+        grad = grad / samples
+        return grad
+    
+    # Original implementation for x-gradients or when B <= J
     y0 = bb_func(x, w)
     p0 = torch.einsum("ij,ij->i", y0, grad_output)
 

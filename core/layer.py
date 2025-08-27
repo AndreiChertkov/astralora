@@ -11,6 +11,7 @@ from .bb_layers.bb_layer_monarch import create_bb_layer_monarch
 from .bb_layers.bb_layer_mrr import create_bb_layer_mrr
 from .bb_layers.bb_layer_mzi import create_bb_layer_mzi
 from .bb_layers.bb_layer_slm import create_bb_layer_slm
+from .bb_layers.bb_layer_mzi_classical import create_bb_layer_mzi_classical
 
 
 class AstraloraLayer(torch.nn.Module):
@@ -47,6 +48,9 @@ class AstraloraLayer(torch.nn.Module):
                 self.d_inp, self.d_out)
         elif self.kind == 'mzi':
             self.bb, w0, self.dw = create_bb_layer_mzi(
+                self.d_inp, self.d_out)
+        elif self.kind == 'mzi_classical':
+            self.bb, w0, self.dw = create_bb_layer_mzi_classical(
                 self.d_inp, self.d_out)
         elif self.kind == 'slm':
             self.bb, w0, self.dw = create_bb_layer_slm(
