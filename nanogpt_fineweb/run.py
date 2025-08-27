@@ -78,8 +78,14 @@ def run():
 
     assert args.bb_num <= len(model.transformer.h)
     for num in range(args.bb_num):
-        model.transformer.h[-1-num].mlp.c_fc = ast.build(
-            model.transformer.h[-1-num].mlp.c_fc)
+        if args.replace_feedforward:
+            d_inp = model.transformer.h[-1-num].mlp.c_fc.in_features
+            d_out = model.transformer.h[-1-num].mlp.c_proj.out_features
+            model.transformer.h[-1-num].mlp = ast.build(
+                model.transformer.h[-1-num].mlp, d_inp, d_out)
+        else:
+            model.transformer.h[-1-num].mlp.c_fc = ast.build(
+                model.transformer.h[-1-num].mlp.c_fc)
 
     model = model.cuda()
     model.master_process = master_process

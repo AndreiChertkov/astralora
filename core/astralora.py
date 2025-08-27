@@ -61,9 +61,11 @@ class Astralora:
         if not 'epochs' in self.args:
             raise ValueError('Number of epochs is not provided')
 
-    def build(self, layer):
-        d_inp = layer.in_features
-        d_out = layer.out_features
+    def build(self, layer, d_inp=None, d_out=None):
+        if d_inp is None:
+            d_inp = layer.in_features
+        if d_out is None:
+            d_out = layer.out_features
 
         if self.args.mode == 'digital':
             return layer

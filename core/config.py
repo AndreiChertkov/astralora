@@ -203,6 +203,13 @@ def _config_nanogpt_fineweb(task, parser):
         help='Number of BB-layers (it should be <= num_blocks)',
         default=1)
 
+    parser.add_argument('--replace_feedforward',
+        type=lambda x: bool(strtobool(x)),
+        help='Do we replace the whole feedforward layer by BB (if True) or only linear layer (if False)',
+        nargs='?',
+        const=True,
+        default=False)
+
     parser.add_argument('--device_total',
         type=int,
         help='Number of required GPU devices to use',
