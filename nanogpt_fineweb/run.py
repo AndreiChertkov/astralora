@@ -77,15 +77,30 @@ def run():
             torch.load(args.load_digital + '/model.pth', map_location='cpu'))
 
     assert args.bb_num <= len(model.transformer.h)
+    if args.replace_feedforward:
+        ast.log(f'DEBUG >>> full feedforward layers will be replaced')
+    params_num_total = sum(p.numel() for p in model.parameters())
+    params_num_replace = 0
     for num in range(args.bb_num):
         if args.replace_feedforward:
             d_inp = model.transformer.h[-1-num].mlp.c_fc.in_features
             d_out = model.transformer.h[-1-num].mlp.c_proj.out_features
+            params_num_replace += sum(p.numel()
+                for p in model.transformer.h[-1-num].mlp.parameters())
             model.transformer.h[-1-num].mlp = ast.build(
                 model.transformer.h[-1-num].mlp, d_inp, d_out)
         else:
+            params_num_replace += sum(p.numel()
+                for p in model.transformer.h[-1-num].mlp.c_fc.parameters())
             model.transformer.h[-1-num].mlp.c_fc = ast.build(
                 model.transformer.h[-1-num].mlp.c_fc)
+    if ast.args.mode == 'digital':
+        params_num_replace = 0
+
+    if master_process:
+        ast.log(f'DEBUG >>> Model params digital   : {params_num_total}')
+        ast.log(f'DEBUG >>> Model params replaced  : {params_num_replace}')
+        ast.log(f'DEBUG >>> Model params final     : {params_num_total - params_num_replace}')
 
     model = model.cuda()
     model.master_process = master_process

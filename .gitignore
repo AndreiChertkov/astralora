@@ -30,6 +30,7 @@ tmp.sh
 */data/*
 
 _log*
+_.md
 
 # Testing and coverage
 htmlcov/
