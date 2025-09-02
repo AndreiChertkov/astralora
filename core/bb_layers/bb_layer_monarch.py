@@ -9,14 +9,11 @@ import torch.nn as nn
 import numpy as np
 
 
-def create_bb_layer_monarch(d_inp, d_out):
+def create_bb_layer_monarch(d_inp, d_out, digital_mode=False, output_encoding="real", w_get_matrix=False):
     # decompose the dimensions into the product of their two closest integer factors.
     num_inp_blks, inp_bsize = get_closest_factors(d_inp)
     num_out_blks, out_bsize = get_closest_factors(d_out)
     d = num_inp_blks * num_out_blks * (inp_bsize + out_bsize)
-
-    digital_mode = False
-    output_encoding = "real"
 
 
     def bb(x, w):
@@ -59,6 +56,10 @@ def create_bb_layer_monarch(d_inp, d_out):
             return torch.real(output)
         elif output_encoding == "intensity":
             return torch.abs(output)
+    
+    def get_matrix(w):
+        x = torch.eye(d_inp, dtype=torch.cfloat if not digital_mode else torch.float, device=w.device)
+        return bb(x, w)
 
 
     w = torch.empty(d)
@@ -67,7 +68,10 @@ def create_bb_layer_monarch(d_inp, d_out):
 
     dw = 1.E-4
     
-    return bb, w, dw
+    if w_get_matrix:
+        return bb, w, dw, get_matrix
+    else:
+        return bb, w, dw
 
 
 def get_closest_factors(N: int):

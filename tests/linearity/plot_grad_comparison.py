@@ -6,6 +6,7 @@ import os
 from core.bb_layers.bb_layer_slm import create_bb_layer_slm
 from core.bb_layers.bb_layer_mrr import create_bb_layer_mrr
 from core.bb_layers.bb_layer_monarch import create_bb_layer_monarch
+from core.bb_layers.bb_layer_lowrank import create_bb_layer_lowrank
 
 
 def _estimate_grad_w_original(bb_func, x, w, grad_output, shift, u_samples):
@@ -74,6 +75,7 @@ def plot_grad_comparison():
         ("SLM", create_bb_layer_slm, 16, 8, 256, 10, 1.0),
         ("MRR", create_bb_layer_mrr, 16, 8, 256, 10, 1.0),
         ("Monarch", create_bb_layer_monarch, 16, 16, 128, 10, 1.0),
+        ("LowRank", create_bb_layer_lowrank, 16, 16, 128, 10, 1.0),
     ]
     
     os.makedirs("_tmp", exist_ok=True)
