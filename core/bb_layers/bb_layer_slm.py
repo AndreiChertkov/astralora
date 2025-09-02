@@ -9,12 +9,10 @@ import torch
 
 def create_bb_layer_slm(d_inp, d_out):
     def bb(x, w):
-        x = x.to(torch.cfloat)
         w = w.view(d_out, d_inp)
-        w = torch.exp(1j * w)
-        y = torch.einsum('ij, ...j -> ...i', w, x)
-        y = y / torch.sqrt(torch.tensor(d_inp, dtype=torch.cfloat))
-        return torch.real(y)
+        y = torch.einsum('ij, ...j -> ...i', torch.cos(w), x)
+        y = y / math.sqrt(d_inp)
+        return y
 
         # w = torch.nn.functional.sigmoid(w) - 0.5
         # w = w * 2 * math.pi
