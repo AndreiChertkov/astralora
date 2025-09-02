@@ -146,6 +146,7 @@ def _config_base(task, parser):
             "mzi",                   # 3-MZI layer from torch-onn
             "mzi_classical",         # MZI layer from torch-onn
             "slm",                   # SLM layer
+            "lowrank",               # Low-rank layer
         ],
         default="matvec")
 
