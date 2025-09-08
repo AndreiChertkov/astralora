@@ -13,6 +13,7 @@ from .helpers.utils import init_path
 from .helpers.utils import init_seed
 from .helpers.utils import save_args_to_markdown
 from .layer import AstraloraLayer
+from .sparse_bb_layer import SparseBBLayer
 
 
 class Astralora:
@@ -87,6 +88,25 @@ class Astralora:
             self.layers_bb.append(layer_bb)
             return layer_bb
         
+        if self.args.mode == 'sparse_bb':
+            self.bb_num += 1
+            layer_sparse_bb = SparseBBLayer(
+                base_layer=layer,
+                d_inp=d_inp,
+                d_out=d_out,
+                bb_kind=self.args.bb_kind,
+                rank=self.args.rank,
+                samples_bb=self.args.samples_bb,
+                samples_sm=self.args.samples_sm,
+                samples_bb_batch_frac=self.args.samples_bb_batch_frac,
+                skip_sm=self.args.skip_sm,
+                use_residual=self.args.use_residual,
+                sparse_top_p=self.args.sparse_top_p,
+                log=self.log,
+                nepman=self.nepman)
+            self.layers_bb.append(layer_sparse_bb)
+            return layer_sparse_bb
+        
         raise NotImplementedError
 
     def done(self, model=None):
@@ -105,9 +125,9 @@ class Astralora:
         self.plot()
 
         for num in range(self.bb_num):
-            if self.args.mode == 'bb':
+            if self.args.mode in ['bb', 'sparse_bb']:
                 self.plot_bb_w(num)
-            if self.args.mode == 'bb' and self.args.bb_kind == 'mrr':
+            if self.args.mode in ['bb', 'sparse_bb'] and self.args.bb_kind == 'mrr':
                 self.plot_bb_w_matrix_for_mrr(num)
         
     def path(self, fpath):
@@ -219,10 +239,10 @@ class Astralora:
 
         if self.args.mode == 'digital' and len(params) > 0:
             raise ValueError
-        if self.args.mode == 'bb' and len(params) == 0:
+        if self.args.mode in ['bb', 'sparse_bb'] and len(params) == 0:
             raise ValueError
 
-        if self.args.mode == 'bb' and len(params) != self.bb_num * 2:
+        if self.args.mode in ['bb', 'sparse_bb'] and len(params) != self.bb_num * 2:
             raise ValueError
 
         if self.args.mode == 'digital':

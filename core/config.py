@@ -99,6 +99,11 @@ def _config_astralora(task, parser):
         help='Learning rate for the BB layer',
         default=0.01)
 
+    parser.add_argument('--sparse_top_p',
+        type=float,
+        help='Top-p fraction (0..1) of absolute weight values to keep as learnable sparse part when using mode=sparse_bb',
+        default=0.1)
+
 
 def _config_base(task, parser):
     parser.add_argument('--name',
@@ -122,6 +127,7 @@ def _config_base(task, parser):
         choices=[
             'digital',
             'bb',
+            'sparse_bb',
         ],
         default='digital')
 
