@@ -17,7 +17,7 @@ class SparseBBLayer(nn.Module):
         self.nepman = nepman
 
         # Initialize sparse mask and weights from the provided base layer (if available)
-        if hasattr(base_layer, 'ыweight') and base_layer.weight is not None:
+        if hasattr(base_layer, 'weight') and base_layer.weight is not None:
             with torch.no_grad():
                 full_weight = base_layer.weight.data.detach().clone()
         else:
