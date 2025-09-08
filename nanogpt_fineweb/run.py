@@ -73,8 +73,19 @@ def run():
         num_blocks=args.num_blocks, n_head=args.num_head, n_embd=768*2))
 
     if args.load_digital:
-        model.load_state_dict(
-            torch.load(args.load_digital + '/model.pth', map_location='cpu'))
+        state_dict = torch.load(args.load_digital + '/model.pth', 
+            map_location='cpu')
+
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for key, value in state_dict.items():
+            if key.startswith('_orig_mod.'):
+                new_key = key.replace('_orig_mod.', '')
+            else:
+                new_key = key
+            new_state_dict[new_key] = value
+
+        model.load_state_dict(new_state_dict, strict=True)
 
     assert args.bb_num <= len(model.transformer.h)
     if args.replace_feedforward:
