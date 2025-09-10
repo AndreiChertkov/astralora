@@ -13,6 +13,7 @@ from .bb_layers.bb_layer_mrr import create_bb_layer_mrr
 from .bb_layers.bb_layer_mzi import create_bb_layer_mzi
 from .bb_layers.bb_layer_slm import create_bb_layer_slm
 from .bb_layers.bb_layer_mzi_classical import create_bb_layer_mzi_classical
+from .bb_layers.bb_layer_mvm1 import create_bb_layer_mvm1
 
 
 class AstraloraLayer(torch.nn.Module):
@@ -58,6 +59,9 @@ class AstraloraLayer(torch.nn.Module):
                 self.d_inp, self.d_out)
         elif self.kind == 'slm':
             self.bb, w0, self.dw = create_bb_layer_slm(
+                self.d_inp, self.d_out)
+        elif self.kind == 'mvm1':
+            self.bb, w0, self.dw = create_bb_layer_mvm1(
                 self.d_inp, self.d_out)
         else:
             raise NotImplementedError
