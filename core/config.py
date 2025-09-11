@@ -153,6 +153,7 @@ def _config_base(task, parser):
             "mzi_classical",         # MZI layer from torch-onn
             "slm",                   # SLM layer
             "lowrank",               # Low-rank layer
+            "mvm1",                  # Free-space diffraction-inspired layer
         ],
         default="matvec")
 
