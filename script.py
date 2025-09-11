@@ -122,7 +122,8 @@ def script():
     
     # GPU configuration
     if args.device_num == 1:
-        gpu = 'a100plus.1gpu.80vG.12C.96G'
+        gpu = 'a100.1gpu.8C.243G'
+        # gpu = 'a100plus.1gpu.80vG.12C.96G'
     elif args.device_num == 2:
         gpu = 'a100plus.2gpu.80vG.24C.192G'
     elif args.device_num == 4:
