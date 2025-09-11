@@ -11,7 +11,7 @@ mpl.rcParams.update({
 import matplotlib.pyplot as plt
 
 
-BB_KINDS = ['monarch', 'mrr', 'mzi', 'slm', 'matvec']
+BB_KINDS = ['monarch', 'mrr', 'mzi', 'mzi_classical', 'slm', 'matvec']
 seeds = [1, 2, 3, 4, 5]
 ranks = [1, 3, 5, 7, 10, 50, 100]
 samples_list = [1, 10, 100, 1000][::-1]
@@ -30,9 +30,9 @@ def load(kind, base_dir, bs='gd-svd'):
     results['digital'] = digital_accs
 
     for rank in ranks:
-        exp_name = f"bb_{kind}_rank{rank}_baseline_{bs}"
-        accs = load_one(base_dir, exp_name)
-        results['baseline'].append(accs)
+        #exp_name = f"bb_{kind}_rank{rank}_baseline_{bs}"
+        #accs = load_one(base_dir, exp_name)
+        #results['baseline'].append(accs)
 
         for samples_val in samples_list:
             exp_name = f"bb_{kind}_rank{rank}_samples{samples_val}"

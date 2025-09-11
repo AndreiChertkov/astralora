@@ -40,6 +40,9 @@ def autorun(task, kind_only=None):
         elif task == 'nanogpt_fineweb':
             autorun_nanogpt_fineweb('nanogpt_fineweb', kind)
 
+        elif task == 'nanogpt_fineweb_baseline':
+            autorun_nanogpt_fineweb_baseline('nanogpt_fineweb', kind)
+
         elif task == 'finetune_prepare':
             autorun_finetune_prepare(task, kind)
 
@@ -202,7 +205,7 @@ def autorun_finetune(task, kind):
 
 def autorun_nanogpt_fineweb(task, kind,
                             samples_bb=100, samples_sm=1000, rank=100):
-    if kind == 'matvec':
+    if False: #kind == 'matvec':
         _run(SimpleNamespace(**{
             'root': f'{task}/result',
             'name': f'digital',
@@ -210,35 +213,39 @@ def autorun_nanogpt_fineweb(task, kind,
             'task': task,
             'torchrun': 1}))
 
-    if True:
-        l = 1
+    for l in [1, 4, 8, 12]:
         _run(SimpleNamespace(**{
-            'root': f'{task}/result',
-            'name': f'bb_{kind}_l{l}',
+            'root': f'{task}/result_feedforward', # _feedforward
+            'name': f'bb_{kind}_l{l}', # f'bb_gd_{kind}_l{l}',
             'mode': 'bb',
             'rank': rank,
             'task': task,
             'bb_kind': kind,
             'bb_num': l,
-            'samples_bb': samples_bb,
+            'samples_bb': samples_bb,  # -1,
             'samples_sm': samples_sm,
-            'replace_feedforward': True,
+            'replace_feedforward': True, # True
             'torchrun': 1}))
+    
+
+def autorun_nanogpt_fineweb_baseline(task, kind, rank=100):
+    if kind != 'matvec':
+        return
 
     for l in [1, 4, 8, 12]:
         _run(SimpleNamespace(**{
-            'root': f'{task}/result',
-            'name': f'bb_gd_{kind}_l{l}',
+            'root': f'{task}/result_feedforward', # _feedforward
+            'name': f'bb_gd_sm_gd_lowrank_l{l}',
             'mode': 'bb',
             'rank': rank,
             'task': task,
-            'bb_kind': kind,
+            'bb_kind': 'lowrank', # TODO
             'bb_num': l,
             'samples_bb': -1,
-            'samples_sm': samples_sm,
-            'replace_feedforward': True,
+            'skip_sm': True,
+            'replace_feedforward': True, # True
             'torchrun': 1}))
-    
+
 
 def autorun_spec(task, kind):
     raise NotImplementedError('Outdated code')
