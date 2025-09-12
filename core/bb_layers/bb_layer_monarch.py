@@ -17,8 +17,9 @@ def create_bb_layer_monarch(d_inp, d_out, digital_mode=False, output_encoding="r
 
 
     def bb(x, w):
-        if not digital_mode:
-            x = x.to(torch.cfloat)
+        # Only 'real' encoding is supported
+        if output_encoding == "intensity":
+            raise ValueError("output_encoding 'intensity' is not supported; use 'real'.")
 
         # Pad the last dimension of x to num_inp_blks * inp_bsize if necessary
         last_dim = x.shape[-1]
@@ -36,10 +37,17 @@ def create_bb_layer_monarch(d_inp, d_out, digital_mode=False, output_encoding="r
         w2 = w[num_inp_blks * num_out_blks * inp_bsize :].view(out_bsize, num_out_blks, num_inp_blks)
 
         if not digital_mode:
-            w1 = _get_slm_stack(w1)
-            w2 = _get_slm_stack(w2)
+            # Compute real-valued phase matrices via cos/sin (no complex dtype)
+            w1_r, w1_i = _get_slm_stack_re_im(w1)
+            w2_r, w2_i = _get_slm_stack_re_im(w2)
 
-        output = torch.einsum("qki, kij, ...ij -> ...qk", w2, w1, x)
+        if digital_mode:
+            output = torch.einsum("qki, kij, ...ij -> ...qk", w2, w1, x)
+        else:
+            # Real part of (w2 * w1) @ x when x is real
+            term_rr = torch.einsum("qki, kij, ...ij -> ...qk", w2_r, w1_r, x)
+            term_ii = torch.einsum("qki, kij, ...ij -> ...qk", w2_i, w1_i, x)
+            output = term_rr - term_ii
         output = output.flatten(start_dim=-2)
 
         # Crop the last dimension of output to d_out
@@ -49,16 +57,10 @@ def create_bb_layer_monarch(d_inp, d_out, digital_mode=False, output_encoding="r
             raise ValueError(f"Output dimension {output.shape[-1]} is less than the target dimension {d_out}. Output shape: {output.shape}")
 
 
-        if digital_mode:
-            return output
-
-        if output_encoding == "real":
-            return torch.real(output)
-        elif output_encoding == "intensity":
-            return torch.abs(output)
+        return output
     
     def get_matrix(w):
-        x = torch.eye(d_inp, dtype=torch.cfloat if not digital_mode else torch.float, device=w.device)
+        x = torch.eye(d_inp, dtype=torch.float, device=w.device)
         return bb(x, w)
 
 
@@ -106,18 +108,20 @@ def get_closest_factors(N: int):
     return int(factor1), int(factor2)
 
 
-def _get_slm_stack(tps):
+def _get_slm_stack_re_im(tps):
     """
-    Get tensor of multiple slms.
+    Build real/imag parts of unit-modulus phase matrices via cos/sin with normalization.
 
     Args:
-        tps (Tensor[num_slm, N_out, N_inp]): phase-shifts of num_slm SLMs with given N_inp and N_out each.
+        tps (Tensor[num_slm, N_out, N_inp]): phase shifts.
 
     Returns:
-        Tensor[num_slm, N_out, N_inp]: Tensor torch.exp(1j * tps) / torch.sqrt(torch.tensor(tps.size(2), dtype=torch.cfloat))
+        Tuple[Tensor[num_slm, N_out, N_inp], Tensor[num_slm, N_out, N_inp]]:
+            (cos(tps) / sqrt(N_inp), sin(tps) / sqrt(N_inp))
     """
-
-    w = torch.exp(1j * tps) / torch.sqrt(torch.tensor(tps.size(2), dtype=torch.cfloat))
-    return w
+    denom = torch.sqrt(torch.tensor(tps.size(2), dtype=torch.float, device=tps.device))
+    w_r = torch.cos(tps) / denom
+    w_i = torch.sin(tps) / denom
+    return w_r, w_i
 
 
