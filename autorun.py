@@ -49,6 +49,9 @@ def autorun(task, kind_only=None):
         elif task == 'finetune':
             autorun_finetune(task, kind)
 
+        elif task == 'finetune_gd':
+            autorun_finetune_gd(task, kind)
+
         else:
             raise NotImplementedError
     
@@ -180,27 +183,100 @@ def autorun_finetune_prepare(task, kind):
         'save_model': True}))
 
 
-def autorun_finetune(task, kind):
-    if kind != 'matvec':
-        return
+def autorun_finetune(task, kind, rank=100,
+                     bb_num=4, samples_bb=100, samples_sm=1000):
+    task = 'nanogpt_fineweb'
 
-    tasks = [
-        'airbench_cifar',
-        'cnn_cifar',
-        'ecapa_urbansound8k',
-        'nanogpt_fineweb',
-    ]
-
-    for task in tasks:
+    if False:
         _run(SimpleNamespace(**{
-            'root': f'{task}/result_finetune/digital_test',
-            'name': 'digital',
+            'root': f'{task}/result_finetune',
+            'name': f'digital_check',
             'mode': 'digital',
             'task': task,
-            'load_digital': f'{task}/result_finetune/digital',
-            'torchrun': 1 if task == 'nanogpt_fineweb' else 0,
+            'load_digital': 'nanogpt_fineweb/result_finetune/digital',
             'rewrite': True,
-            'epochs': 1}))
+            'torchrun': 1}))
+
+    _run(SimpleNamespace(**{
+        'root': f'{task}/result_finetune',
+        'name': f'bb_{kind}_l{bb_num}_base',
+        'mode': 'bb',
+        'rank': rank,
+        'task': task,
+        'bb_kind': kind,
+        'bb_num': bb_num,
+        'samples_bb': samples_bb,
+        'samples_sm': samples_sm,
+        'load_digital': 'nanogpt_fineweb/result_finetune/digital',
+        'rewrite': True,
+        'torchrun': 1}))
+
+    for p in [1, 2, 3, 4, 5]:
+        _run(SimpleNamespace(**{
+            'root': f'{task}/result_finetune',
+            'name': f'bb_{kind}_l{bb_num}_sparse-{p}',
+            'mode': 'sparse_bb',
+            'rank': rank,
+            'task': task,
+            'bb_kind': kind,
+            'bb_num': bb_num,
+            'samples_bb': samples_bb,
+            'samples_sm': samples_sm,
+            'load_digital': 'nanogpt_fineweb/result_finetune/digital',
+            'sparse_top_p': p * 1./10,
+            'rewrite': True,
+            'torchrun': 1}))
+
+        if True:
+            _run(SimpleNamespace(**{
+                'root': f'{task}/result_finetune',
+                'name': f'id_l{bb_num}_sparse-{p}',
+                'mode': 'sparse_bb',
+                'rank': rank,
+                'task': task,
+                'bb_kind': 'id',
+                'bb_num': bb_num,
+                'samples_bb': -1,
+                'skip_sm': True,
+                'load_digital': 'nanogpt_fineweb/result_finetune/digital',
+                'sparse_top_p': p * 1./10,
+                'rewrite': True,
+                'torchrun': 1}))
+
+
+def autorun_finetune_gd(task, kind, rank=100,
+                        bb_num=4, samples_sm=1000):    
+    task = 'nanogpt_fineweb'
+
+    _run(SimpleNamespace(**{
+        'root': f'{task}/result_finetune',
+        'name': f'bb_{kind}_l{bb_num}_bb-gd_base',
+        'mode': 'bb',
+        'rank': rank,
+        'task': task,
+        'bb_kind': kind,
+        'bb_num': bb_num,
+        'samples_bb': -1,
+        'samples_sm': samples_sm,
+        'load_digital': 'nanogpt_fineweb/result_finetune/digital',
+        'rewrite': True,
+        'torchrun': 1}))
+
+    for p in [1, 2, 3, 4, 5]:
+        _run(SimpleNamespace(**{
+            'root': f'{task}/result_finetune',
+            'name': f'bb_{kind}_l{bb_num}_bb-gd_sparse-{p}',
+            'mode': 'sparse_bb',
+            'rank': rank,
+            'task': task,
+            'bb_kind': kind,
+            'bb_num': bb_num,
+            'samples_bb': -1,
+            'samples_sm': samples_sm,
+            'load_digital': 'nanogpt_fineweb/result_finetune/digital',
+            'sparse_top_p': p * 1./10,
+            'rewrite': True,
+            'torchrun': 1}))
 
 
 def autorun_nanogpt_fineweb(task, kind,
@@ -228,22 +304,36 @@ def autorun_nanogpt_fineweb(task, kind,
             'torchrun': 1}))
     
 
-def autorun_nanogpt_fineweb_baseline(task, kind, rank=100):
+def autorun_nanogpt_fineweb_baseline(task, kind, rank=50):
     if kind != 'matvec':
         return
 
+    i = 1 # for i in range(2):
     for l in [1, 4, 8, 12]:
+        root = f'{task}/result' if i == 0 else f'{task}/result_feedforward'
         _run(SimpleNamespace(**{
-            'root': f'{task}/result_feedforward', # _feedforward
+            'root': root,
+            'name': f'bb_gd_sm_gd_id_l{l}',
+            'mode': 'bb',
+            'rank': rank,
+            'task': task,
+            'bb_kind': 'id',
+            'bb_num': l,
+            'samples_bb': -1,
+            'skip_sm': True,
+            'replace_feedforward': i == 1,
+            'torchrun': 1}))
+        _run(SimpleNamespace(**{
+            'root': root,
             'name': f'bb_gd_sm_gd_lowrank_l{l}',
             'mode': 'bb',
             'rank': rank,
             'task': task,
-            'bb_kind': 'lowrank', # TODO
+            'bb_kind': 'lowrank',
             'bb_num': l,
             'samples_bb': -1,
             'skip_sm': True,
-            'replace_feedforward': True, # True
+            'replace_feedforward': i == 1,
             'torchrun': 1}))
 
 
