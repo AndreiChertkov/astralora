@@ -41,7 +41,22 @@ This package `astralora` (**A**daptive **S**urrogate **TRA**ining with **LO**w *
 
 We consider the application of our approach `astralora` to different classes of problems (architecture + domain), located in folders: `airbench_cifar`, `cnn_cifar`, `ecapa_urbansound8k`, `nanogpt_fineweb`. Each of the designated folders contains a main script `run.py`, which provides details on setting up and running.
 
-We also performed various runs of calculations on clusters using script `autorun.py`, `script.py`, and shell scripts `shell_scripts/tmp*.sh`.
+We also performed various runs of calculations on clusters using script `autorun.py` and `script.py`.
+
+
+## Citation
+
+If you find our approach and/or code useful in your research, please consider citing:
+
+```bibtex
+@article{chertkov2025lowrank_pre,
+    author    = {Chertkov, Andrei and Basharin, Artem and Saygin, Mikhail and Frolov, Evgeny and Straupe, Stanislav and Oseledets, Ivan},
+    year      = {2025},
+    title     = {Low-rank surrogate modeling and stochastic zero-order optimization for training of neural networks with black-box layers},
+    journal   = {arXiv preprint arXiv:2509.15113},
+    url       = {https://arxiv.org/pdf/2509.15113}
+}
+```
 
 
 ## Authors
