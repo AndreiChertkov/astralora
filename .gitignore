@@ -36,3 +36,4 @@ _.md
 htmlcov/
 .coverage
 .pytest_cache/
+tmp
