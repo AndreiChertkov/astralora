@@ -83,6 +83,14 @@ class Astralora:
                 samples_bb_batch_frac=self.args.samples_bb_batch_frac,
                 skip_sm=self.args.skip_sm,
                 use_residual=self.args.use_residual,
+                quan_x=self.args.quan_x,
+                quan_w=self.args.quan_w,
+                quan_n_x=self.args.quan_n_x,
+                quan_n_w=self.args.quan_n_w,
+                quan_lim_x_min=self.args.quan_lim_x_min,
+                quan_lim_x_max=self.args.quan_lim_x_max,
+                quan_lim_w_min=self.args.quan_lim_w_min,
+                quan_lim_w_max=self.args.quan_lim_w_max,
                 log=self.log,
                 nepman=self.nepman)
             self.layers_bb.append(layer_bb)

@@ -18,6 +18,9 @@ def config(task, args_add={}):
     _config_astralora(task,
         parser.add_argument_group("Parameters for custom layer training"))
 
+    _config_astralora_quantization(
+        parser.add_argument_group('Parameters for custom layer quantization'))
+
     if task == 'airbench_cifar':
         _config_airbench_cifar(task,
             parser.add_argument_group("Parameters for task airbench/cifar"))
@@ -103,6 +106,52 @@ def _config_astralora(task, parser):
         type=float,
         help='Top-p fraction (0..1) of absolute weight values to keep as learnable sparse part when using mode=sparse_bb',
         default=0.1)
+
+
+def _config_astralora_quantization(parser):
+    parser.add_argument('--quan_x',
+        type=lambda x: bool(strtobool(x)),
+        help='Enable quantization for BB inputs',
+        nargs='?',
+        const=True,
+        default=False)
+    
+    parser.add_argument('--quan_w',
+        type=lambda x: bool(strtobool(x)),
+        help='Enable quantization for BB weights',
+        nargs='?',
+        const=True,
+        default=False)
+    
+    parser.add_argument('--quan_n_x',
+        type=int,
+        help='Number of quantization bins (levels) for BB inputs',
+        default=256)
+    
+    parser.add_argument('--quan_n_w',
+        type=int,
+        help='Number of quantization bins (levels) for BB weights',
+        default=256)
+
+    parser.add_argument('--quan_lim_x_min',
+        type=float,
+        help='Minimum value for input quantization range',
+        default=0.)
+    
+    parser.add_argument('--quan_lim_x_max',
+        type=float,
+        help='Maximum value for input quantization range',
+        default=1.)
+    
+    parser.add_argument('--quan_lim_w_min',
+        type=float,
+        help='Minimum value for weight quantization range',
+        default=-3.141592653589793)  # -pi
+    
+    parser.add_argument('--quan_lim_w_max',
+        type=float,
+        help='Maximum value for weight quantization range',
+        default=3.141592653589793)   # +pi
 
 
 def _config_base(task, parser):

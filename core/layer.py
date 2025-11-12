@@ -5,6 +5,7 @@ from .helpers.approximation import approximation
 from .helpers.approximation import bb_appr_w_svd
 from .helpers.backprop import backprop_wrap
 from .helpers.psi import psi_implicit
+from .helpers.quantization import quantization_fixed
 from .bb_layers.bb_layer_id import create_bb_layer_id
 from .bb_layers.bb_layer_matvec import create_bb_layer_matvec
 from .bb_layers.bb_layer_monarch import create_bb_layer_monarch
@@ -19,6 +20,8 @@ from .bb_layers.bb_layer_mvm1 import create_bb_layer_mvm1
 class AstraloraLayer(torch.nn.Module):
     def __init__(self, d_inp, d_out, kind, rank, samples_bb, samples_sm, 
                  samples_bb_batch_frac, skip_sm, use_residual,
+                 quan_x, quan_w, quan_n_x, quan_n_w,
+                 quan_lim_x_min, quan_lim_x_max, quan_lim_w_min, quan_lim_w_max,
                  log=print, nepman=None):
         super().__init__()
         
@@ -31,6 +34,29 @@ class AstraloraLayer(torch.nn.Module):
         self.samples_bb_batch_frac = samples_bb_batch_frac
         self.skip_sm = skip_sm
         self.use_residual = use_residual
+
+        self.quan_x = quan_x
+        self.quan_w = quan_w
+        
+        self.quan_n_x = quan_n_x
+        self.quan_n_w = quan_n_w
+
+        if self.quan_x:
+            self.register_buffer('quan_lim_x_min',
+                torch.tensor(quan_lim_x_min,
+                    dtype=torch.float32, device=self.device))
+            self.register_buffer('quan_lim_x_max',
+                torch.tensor(quan_lim_x_max,
+                    dtype=torch.float32, device=self.device))
+
+        if self.quan_w:
+            self.register_buffer('quan_lim_w_min',
+                torch.tensor(quan_lim_w_min,
+                    dtype=torch.float32, device=self.device))
+            self.register_buffer('quan_lim_w_max',
+                torch.tensor(quan_lim_w_max,
+                    dtype=torch.float32, device=self.device))
+
         self.log = log
         self.nepman = nepman
 
@@ -100,12 +126,21 @@ class AstraloraLayer(torch.nn.Module):
         shape = x.shape
         x = x.reshape(-1, shape[-1])
 
-        y = self.bb_wrapper(x, self.w, self.U, self.S, self.V)
+        if self.quan_x:
+            x = quantization_fixed(x,
+                self.quan_lim_x_min, self.quan_lim_x_max, self.quan_n_x)
+
+        w = self.w
+        if self.quan_w:
+            w = quantization_fixed(w,
+                self.quan_lim_w_min, self.quan_lim_w_max, self.quan_n_w)
+
+        y = self.bb_wrapper(x, w, self.U, self.S, self.V)
 
         if self.training and self.w_old is not None and not self.skip_sm:
             self._update_factors() # x.detach().clone(), y.detach().clone()
 
-        self.w_old = self.w.data.detach().clone()
+        self.w_old = w.data.detach().clone()
             
         y = y.reshape(*shape[:-1], y.shape[-1])
         
@@ -125,6 +160,7 @@ class AstraloraLayer(torch.nn.Module):
         self._set_factors(U, S, V)
 
     def _add_residual(self, x, y):
+        raise NotImplementedError
         x_ch = x.shape[1]
         y_ch = y.shape[1]
 
