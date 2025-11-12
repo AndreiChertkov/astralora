@@ -44,18 +44,18 @@ class AstraloraLayer(torch.nn.Module):
         if self.quan_x:
             self.register_buffer('quan_lim_x_min',
                 torch.tensor(quan_lim_x_min,
-                    dtype=torch.float32, device=self.device))
+                    dtype=torch.float32))
             self.register_buffer('quan_lim_x_max',
                 torch.tensor(quan_lim_x_max,
-                    dtype=torch.float32, device=self.device))
+                    dtype=torch.float32))
 
         if self.quan_w:
             self.register_buffer('quan_lim_w_min',
                 torch.tensor(quan_lim_w_min,
-                    dtype=torch.float32, device=self.device))
+                    dtype=torch.float32))
             self.register_buffer('quan_lim_w_max',
                 torch.tensor(quan_lim_w_max,
-                    dtype=torch.float32, device=self.device))
+                    dtype=torch.float32))
 
         self.log = log
         self.nepman = nepman
