@@ -31,11 +31,17 @@ def autorun(task, kind_only=None):
         elif task == 'airbench_cifar':
             autorun_airbench_cifar(task, kind)
     
+        elif task == 'airbench_cifar_check':
+            autorun_airbench_cifar_check('airbench_cifar', kind)
+    
         elif task == 'cnn_cifar':
             autorun_cnn_cifar(task, kind)
 
         elif task == 'ecapa_urbansound8k':
             autorun_ecapa_urbansound8k(task, kind)
+
+        elif task == 'ecapa_urbansound8k_check':
+            autorun_ecapa_urbansound8k_check('ecapa_urbansound8k', kind)
 
         elif task == 'nanogpt_fineweb':
             autorun_nanogpt_fineweb('nanogpt_fineweb', kind)
@@ -108,6 +114,35 @@ def autorun_airbench_cifar(task, kind):
                 _run(args)
 
 
+def autorun_airbench_cifar_check(task, kind, rank=3):
+    root = f'{task}/result_{kind}'
+    seeds = [1, 2, 3, 4, 5]
+    samples = [1, 10, 100, 1000]
+
+    for seed in seeds:
+        for s in samples:
+            args = SimpleNamespace(**{'task': task, 'root': root})
+            args.name = f'bb_{kind}_bs_samples{s}_sm-skip_seed{seed}'
+            args.mode = 'bb'
+            args.seed = seed
+            args.bb_kind = kind
+            args.samples_bb = s
+            args.samples_sm = 0
+            args.skip_sm = True
+            _run(args)
+
+        for s in samples:
+            args = SimpleNamespace(**{'task': task, 'root': root})
+            args.name = f'bb_{kind}_bs_rank{rank}_samples{s}_bb-skip_seed{seed}'
+            args.mode = 'bb'
+            args.seed = seed
+            args.rank = rank
+            args.bb_kind = kind
+            args.samples_bb = -1
+            args.samples_sm = s
+            _run(args)
+
+
 def autorun_cnn_cifar(task, kind):
     raise NotImplementedError
 
@@ -143,6 +178,32 @@ def autorun_ecapa_urbansound8k(task, kind, samples_bb=1000, samples_sm=1000):
             args.samples_bb = samples_bb
             args.samples_sm = samples_sm
             _run(args)
+
+
+def autorun_ecapa_urbansound8k_check(task, kind, rank=10, samples=1000):
+    seeds = [1, 2, 3, 4, 5]
+
+    for seed in seeds:
+        args = SimpleNamespace(**{
+            'task': task, 'seed': seed, 'root': f'{task}/result_{kind}'})
+        args.name = f'bb_{kind}_rank{rank}_sm-skip_seed{seed}'
+        args.mode = 'bb'
+        args.rank = rank
+        args.bb_kind = kind
+        args.samples_bb = samples
+        args.samples_sm = 0
+        args.skip_sm = True
+        _run(args)
+
+        args = SimpleNamespace(**{
+            'task': task, 'seed': seed, 'root': f'{task}/result_{kind}'})
+        args.name = f'bb_{kind}_rank{rank}_bb-skip_seed{seed}'
+        args.mode = 'bb'
+        args.rank = rank
+        args.bb_kind = kind
+        args.samples_bb = -1
+        args.samples_sm = samples
+        _run(args)
 
 
 def autorun_finetune_prepare(task, kind):
