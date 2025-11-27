@@ -107,6 +107,11 @@ def _config_astralora(task, parser):
         help='Top-p fraction (0..1) of absolute weight values to keep as learnable sparse part when using mode=sparse_bb',
         default=0.1)
 
+    parser.add_argument('--noise',
+        type=float,
+        help='Noise added to the output of the BB layer (if < 0 then will not be added)',
+        default=-1)
+
 
 def _config_astralora_quantization(parser):
     parser.add_argument('--quan_x',

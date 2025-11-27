@@ -22,7 +22,7 @@ class AstraloraLayer(torch.nn.Module):
                  samples_bb_batch_frac, skip_sm, use_residual,
                  quan_x, quan_w, quan_n_x, quan_n_w,
                  quan_lim_x_min, quan_lim_x_max, quan_lim_w_min, quan_lim_w_max,
-                 log=print, nepman=None):
+                 noise=-1, log=print, nepman=None):
         super().__init__()
         
         self.d_inp = d_inp
@@ -56,6 +56,8 @@ class AstraloraLayer(torch.nn.Module):
             self.register_buffer('quan_lim_w_max',
                 torch.tensor(quan_lim_w_max,
                     dtype=torch.float32))
+
+        self.noise = noise
 
         self.log = log
         self.nepman = nepman
@@ -148,6 +150,11 @@ class AstraloraLayer(torch.nn.Module):
         
         if self.use_residual:
             y = y + self._add_residual(x, y)
+
+        if self.noise > 0:
+            std_dev = torch.abs(y) / self.noise
+            noise_tensor = torch.randn_like(y) * std_dev
+            y = y + noise_tensor
 
         return y
 

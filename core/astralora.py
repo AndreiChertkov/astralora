@@ -91,6 +91,7 @@ class Astralora:
                 quan_lim_x_max=self.args.quan_lim_x_max,
                 quan_lim_w_min=self.args.quan_lim_w_min,
                 quan_lim_w_max=self.args.quan_lim_w_max,
+                noise=self.args.noise,
                 log=self.log,
                 nepman=self.nepman)
             self.layers_bb.append(layer_bb)
